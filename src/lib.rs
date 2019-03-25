@@ -3,6 +3,7 @@
 extern crate regex;
 
 mod utf8;
+mod white_spaces;
 
 use std::io::{self, Read, Cursor};
 use std::path::Path;
@@ -10,14 +11,16 @@ use std::fs::File;
 use std::ptr::copy;
 
 use self::utf8::*;
+use self::white_spaces::*;
 
 const DEFAULT_RADIX: u8 = 10;
-const DEFAULT_BUFFER_SIZE: usize = 1024; // must be equal to or bigger than 4
+const DEFAULT_BUFFER_SIZE: usize = 64; // must be equal to or bigger than 4
 
 pub struct Scanner<R: Read> {
     reader: R,
     buffer: Vec<u8>,
     position: usize,
+    last_cr: bool,
     radix: u8,
 }
 
@@ -36,6 +39,7 @@ impl<R: Read> Scanner<R> {
             reader,
             buffer,
             position: 0,
+            last_cr: false,
             radix: DEFAULT_RADIX,
         }
     }
@@ -56,7 +60,7 @@ impl Scanner<File> {
 
         let size = metadata.len();
 
-        let buffer_size = (size as usize).min(DEFAULT_BUFFER_SIZE).min(4);
+        let buffer_size = (size as usize).min(DEFAULT_BUFFER_SIZE).max(4);
 
         Ok(Self::with_capacity(file, buffer_size))
     }
@@ -74,7 +78,7 @@ impl Scanner<Cursor<String>> {
 
         let size = s.len();
 
-        let buffer_size = size.min(DEFAULT_BUFFER_SIZE).min(4);
+        let buffer_size = size.min(DEFAULT_BUFFER_SIZE).max(4);
 
         Scanner::with_capacity(Cursor::new(s), buffer_size)
     }
@@ -86,7 +90,7 @@ impl Scanner<&[u8]> {
 
         let size = b.len();
 
-        let buffer_size = size.min(DEFAULT_BUFFER_SIZE).min(4);
+        let buffer_size = size.min(DEFAULT_BUFFER_SIZE).max(4);
 
         Scanner::with_capacity(b, buffer_size)
     }
@@ -96,7 +100,7 @@ impl Scanner<Cursor<Vec<u8>>> {
     pub fn scan_vec(v: Vec<u8>) -> Scanner<Cursor<Vec<u8>>> {
         let size = v.len();
 
-        let buffer_size = size.min(DEFAULT_BUFFER_SIZE).min(4);
+        let buffer_size = size.min(DEFAULT_BUFFER_SIZE).max(4);
 
         Scanner::with_capacity(Cursor::new(v), buffer_size)
     }
@@ -119,22 +123,24 @@ impl<R: Read> Scanner<R> {
         &self.buffer[..self.position]
     }
 
-    fn fetch_next_line(&mut self) -> Result<(Vec<u8>, Option<usize>), io::Error> {
+    fn fetch_next_line(&mut self) -> Result<(Vec<u8>, Option<usize>, bool), io::Error> {
         let len = self.buffer.len();
 
         let mut temp = Vec::new();
 
-        let size = {
-            let buffer = &mut self.buffer[self.position..len];
+        if self.position == 0 {
+            let size = {
+                let buffer = &mut self.buffer[self.position..];
 
-            self.reader.read(buffer)?
-        };
+                self.reader.read(buffer)?
+            };
 
-        if size == 0 {
-            return Ok((temp, None));
+            if size == 0 {
+                return Ok((temp, None, false));
+            }
+
+            self.position += size;
         }
-
-        self.position += size;
 
         let mut p = 0;
 
@@ -146,8 +152,10 @@ impl<R: Read> Scanner<R> {
                     p += 1;
                 }
                 1 => {
-                    if self.buffer[p] as char == '\n' {
-                        return Ok((temp, Some(p)));
+                    if self.buffer[p] == b'\n' {
+                        return Ok((temp, Some(p), false));
+                    } else if self.buffer[p] == b'\r' {
+                        return Ok((temp, Some(p), true));
                     }
 
                     p += 1;
@@ -156,16 +164,16 @@ impl<R: Read> Scanner<R> {
                     let mut wp = width + p;
 
                     if wp > len {
-                        temp.extend_from_slice(&self.buffer);
+                        temp.extend_from_slice(&self.buffer[..self.position]);
 
                         self.position = 0;
 
-                        wp = width;
+                        wp = width - 1;
                     }
 
                     while self.position < wp {
                         let size = {
-                            let buffer = &mut self.buffer[self.position..len];
+                            let buffer = &mut self.buffer[self.position..wp];
 
                             self.reader.read(buffer)?
                         };
@@ -178,7 +186,7 @@ impl<R: Read> Scanner<R> {
                     }
 
                     if self.position < wp {
-                        return Ok((temp, Some(self.position)));
+                        return Ok((temp, Some(self.position), false));
                     } else {
                         p = wp;
                     }
@@ -194,28 +202,32 @@ impl<R: Read> Scanner<R> {
                     p = 0;
 
                     let size = {
-                        let buffer = &mut self.buffer[self.position..len];
+                        let buffer = &mut self.buffer[self.position..];
 
                         self.reader.read(buffer)?
                     };
 
                     if size == 0 {
-                        return Ok((temp, None));
+                        return Ok((temp, None, false));
                     }
 
                     self.position += size;
                 } else {
                     let size = {
-                        let buffer = &mut self.buffer[self.position..len];
+                        let buffer = &mut self.buffer[self.position..];
 
                         self.reader.read(buffer)?
                     };
 
                     if size == 0 {
-                        if self.buffer[p - 1] as char == '\n' {
-                            return Ok((temp, Some(p - 1)));
+                        let p_dec = p - 1;
+
+                        if self.buffer[p_dec] == b'\n' {
+                            return Ok((temp, Some(p_dec), false));
+                        } else if self.buffer[p_dec] == b'\r' {
+                            return Ok((temp, Some(p_dec), true));
                         } else {
-                            return Ok((temp, Some(p)));
+                            return Ok((temp, Some(p), false));
                         }
                     }
 
@@ -228,11 +240,11 @@ impl<R: Read> Scanner<R> {
 
 impl<R: Read> Scanner<R> {
     pub fn next_char(&mut self) -> Result<Option<char>, io::Error> {
-        let len = self.buffer.len();
+        self.last_cr = false;
 
         if self.position == 0 {
             let size = {
-                let buffer = &mut self.buffer[..len];
+                let buffer = &mut self.buffer[..];
 
                 self.reader.read(buffer)?
             };
@@ -262,7 +274,7 @@ impl<R: Read> Scanner<R> {
             _ => {
                 while self.position < width {
                     let size = {
-                        let buffer = &mut self.buffer[self.position..len];
+                        let buffer = &mut self.buffer[self.position..];
 
                         self.reader.read(buffer)?
                     };
@@ -309,12 +321,24 @@ impl<R: Read> Scanner<R> {
 
                 self.pull(t + 1);
 
+                if v.is_empty() && !result.2 {
+                    if self.last_cr {
+                        self.last_cr = false;
+
+                        return self.next_line();
+                    }
+                }
+
+                self.last_cr = result.2;
+
                 return Ok(Some(String::from_utf8_lossy(&v).to_string()));
             }
             None => {
                 if v.is_empty() {
                     return Ok(None);
                 } else {
+                    self.last_cr = result.2;
+
                     return Ok(Some(String::from_utf8_lossy(&v).to_string()));
                 }
             }
