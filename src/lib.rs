@@ -1,27 +1,32 @@
 #![cfg_attr(feature = "nightly", feature(str_internals))]
 
-extern crate regex;
-
 mod utf8;
-mod white_spaces;
+mod whitespaces;
 
 use std::io::{self, Read, Cursor};
 use std::path::Path;
 use std::fs::File;
 use std::ptr::copy;
+use std::num::ParseIntError;
+use std::num::ParseFloatError;
 
 use self::utf8::*;
-use self::white_spaces::*;
+use self::whitespaces::*;
 
-const DEFAULT_RADIX: u8 = 10;
 const DEFAULT_BUFFER_SIZE: usize = 64; // must be equal to or bigger than 4
+
+#[derive(Debug)]
+pub enum ScannerError {
+    IOError(io::Error),
+    ParseIntError(ParseIntError),
+    ParseFloatError(ParseFloatError),
+}
 
 pub struct Scanner<R: Read> {
     reader: R,
     buffer: Vec<u8>,
     position: usize,
     last_cr: bool,
-    radix: u8,
 }
 
 impl<R: Read> Scanner<R> {
@@ -40,7 +45,6 @@ impl<R: Read> Scanner<R> {
             buffer,
             position: 0,
             last_cr: false,
-            radix: DEFAULT_RADIX,
         }
     }
 
@@ -48,15 +52,17 @@ impl<R: Read> Scanner<R> {
     pub fn new(reader: R) -> Scanner<R> {
         Self::with_capacity(reader, DEFAULT_BUFFER_SIZE)
     }
+}
 
+impl<R: Read> Scanner<R> {
     pub fn scan_stream(reader: R) -> Scanner<R> {
         Self::new(reader)
     }
 }
 
 impl Scanner<File> {
-    pub fn scan_file(file: File) -> Result<Scanner<File>, io::Error> {
-        let metadata = file.metadata()?;
+    pub fn scan_file(file: File) -> Result<Scanner<File>, ScannerError> {
+        let metadata = file.metadata().map_err(|err| ScannerError::IOError(err))?;
 
         let size = metadata.len();
 
@@ -65,8 +71,8 @@ impl Scanner<File> {
         Ok(Self::with_capacity(file, buffer_size))
     }
 
-    pub fn scan_path<P: AsRef<Path>>(path: P) -> Result<Scanner<File>, io::Error> {
-        let file = File::open(path)?;
+    pub fn scan_path<P: AsRef<Path>>(path: P) -> Result<Scanner<File>, ScannerError> {
+        let file = File::open(path).map_err(|err| ScannerError::IOError(err))?;
 
         Self::scan_file(file)
     }
@@ -123,7 +129,7 @@ impl<R: Read> Scanner<R> {
         &self.buffer[..self.position]
     }
 
-    fn fetch_next_line(&mut self) -> Result<(Vec<u8>, Option<usize>, bool), io::Error> {
+    fn fetch_next_line(&mut self) -> Result<(Vec<u8>, Option<usize>, bool), ScannerError> {
         let len = self.buffer.len();
 
         let mut temp = Vec::new();
@@ -132,7 +138,7 @@ impl<R: Read> Scanner<R> {
             let size = {
                 let buffer = &mut self.buffer[self.position..];
 
-                self.reader.read(buffer)?
+                self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
             };
 
             if size == 0 {
@@ -173,9 +179,9 @@ impl<R: Read> Scanner<R> {
 
                     while self.position < wp {
                         let size = {
-                            let buffer = &mut self.buffer[self.position..wp];
+                            let buffer = &mut self.buffer[self.position..];
 
-                            self.reader.read(buffer)?
+                            self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
                         };
 
                         if size == 0 {
@@ -204,7 +210,7 @@ impl<R: Read> Scanner<R> {
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
 
-                        self.reader.read(buffer)?
+                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
                     };
 
                     if size == 0 {
@@ -216,19 +222,239 @@ impl<R: Read> Scanner<R> {
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
 
-                        self.reader.read(buffer)?
+                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
                     };
 
                     if size == 0 {
-                        let p_dec = p - 1;
+                        return Ok((temp, Some(p), false));
+                    }
 
-                        if self.buffer[p_dec] == b'\n' {
-                            return Ok((temp, Some(p_dec), false));
-                        } else if self.buffer[p_dec] == b'\r' {
-                            return Ok((temp, Some(p_dec), true));
-                        } else {
-                            return Ok((temp, Some(p), false));
+                    self.position += size;
+                }
+            }
+        }
+    }
+
+    fn fetch_next_non_whitespace(&mut self) -> Result<Option<usize>, ScannerError> {
+        let len = self.buffer.len();
+
+        if self.position == 0 {
+            let size = {
+                let buffer = &mut self.buffer[self.position..];
+
+                self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+            };
+
+            if size == 0 {
+                return Ok(None);
+            }
+
+            self.position += size;
+        }
+
+        let mut p = 0;
+
+        loop {
+            let width = utf8_char_width(self.buffer[p]);
+
+            match width {
+                0 => {
+                    return Ok(Some(p));
+                }
+                1 => {
+                    if !is_whitespace_1(self.buffer[p]) {
+                        return Ok(Some(p));
+                    }
+
+                    p += 1;
+                }
+                _ => {
+                    let mut wp = width + p;
+
+                    if wp > len {
+                        self.buffer[0] = self.buffer[p];
+
+                        self.position = 1;
+
+                        p = 0;
+
+                        wp = width;
+                    }
+
+                    while self.position < wp {
+                        let size = {
+                            let buffer = &mut self.buffer[self.position..];
+
+                            self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                        };
+
+                        if size == 0 {
+                            break;
                         }
+
+                        self.position += size;
+                    }
+
+                    if self.position < wp {
+                        return Ok(Some(p));
+                    } else {
+                        match width {
+                            2 => {}
+                            3 => {
+                                if !is_whitespace_3(self.buffer[p], self.buffer[p + 1], self.buffer[p + 2]) {
+                                    return Ok(Some(p));
+                                }
+                            }
+                            _ => {
+                                unreachable!()
+                            }
+                        }
+                        p = wp;
+                    }
+                }
+            }
+
+            if p == self.position {
+                if p == len {
+                    self.position = 0;
+
+                    p = 0;
+
+                    let size = {
+                        let buffer = &mut self.buffer[self.position..];
+
+                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                    };
+
+                    if size == 0 {
+                        return Ok(None);
+                    }
+
+                    self.position += size;
+                } else {
+                    let size = {
+                        let buffer = &mut self.buffer[self.position..];
+
+                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                    };
+
+                    if size == 0 {
+                        return Ok(None);
+                    }
+
+                    self.position += size;
+                }
+            }
+        }
+    }
+
+    fn fetch_next_whitespace(&mut self) -> Result<(Vec<u8>, Option<usize>), ScannerError> {
+        let len = self.buffer.len();
+
+        let mut temp = Vec::new();
+
+        if self.position == 0 {
+            let size = {
+                let buffer = &mut self.buffer[self.position..];
+
+                self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+            };
+
+            if size == 0 {
+                return Ok((temp, None));
+            }
+
+            self.position += size;
+        }
+
+        let mut p = 0;
+
+        loop {
+            let width = utf8_char_width(self.buffer[p]);
+
+            match width {
+                0 => {
+                    p += 1;
+                }
+                1 => {
+                    if is_whitespace_1(self.buffer[p]) {
+                        return Ok((temp, Some(p)));
+                    }
+
+                    p += 1;
+                }
+                _ => {
+                    let mut wp = width + p;
+
+                    if wp > len {
+                        temp.extend_from_slice(&self.buffer[..self.position]);
+
+                        self.position = 0;
+
+                        wp = width - 1;
+                    }
+
+                    while self.position < wp {
+                        let size = {
+                            let buffer = &mut self.buffer[self.position..];
+
+                            self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                        };
+
+                        if size == 0 {
+                            break;
+                        }
+
+                        self.position += size;
+                    }
+
+                    if self.position < wp {
+                        return Ok((temp, Some(self.position)));
+                    } else {
+                        match width {
+                            2 => {}
+                            3 => {
+                                if is_whitespace_3(self.buffer[p], self.buffer[p + 1], self.buffer[p + 2]) {
+                                    return Ok((temp, Some(p)));
+                                }
+                            }
+                            _ => {
+                                unreachable!()
+                            }
+                        }
+                        p = wp;
+                    }
+                }
+            }
+
+            if p == self.position {
+                if p == len {
+                    temp.extend_from_slice(&self.buffer);
+
+                    self.position = 0;
+
+                    p = 0;
+
+                    let size = {
+                        let buffer = &mut self.buffer[self.position..];
+
+                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                    };
+
+                    if size == 0 {
+                        return Ok((temp, None));
+                    }
+
+                    self.position += size;
+                } else {
+                    let size = {
+                        let buffer = &mut self.buffer[self.position..];
+
+                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                    };
+
+                    if size == 0 {
+                        return Ok((temp, Some(p)));
                     }
 
                     self.position += size;
@@ -239,14 +465,14 @@ impl<R: Read> Scanner<R> {
 }
 
 impl<R: Read> Scanner<R> {
-    pub fn next_char(&mut self) -> Result<Option<char>, io::Error> {
+    pub fn next_char(&mut self) -> Result<Option<char>, ScannerError> {
         self.last_cr = false;
 
         if self.position == 0 {
             let size = {
                 let buffer = &mut self.buffer[..];
 
-                self.reader.read(buffer)?
+                self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
             };
 
             if size == 0 {
@@ -276,7 +502,7 @@ impl<R: Read> Scanner<R> {
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
 
-                        self.reader.read(buffer)?
+                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
                     };
 
                     if size == 0 {
@@ -310,7 +536,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    pub fn next_line(&mut self) -> Result<Option<String>, io::Error> {
+    pub fn next_line(&mut self) -> Result<Option<String>, ScannerError> {
         let result = self.fetch_next_line()?;
 
         let mut v = result.0;
@@ -331,16 +557,220 @@ impl<R: Read> Scanner<R> {
 
                 self.last_cr = result.2;
 
-                return Ok(Some(String::from_utf8_lossy(&v).to_string()));
+                Ok(Some(String::from_utf8_lossy(&v).to_string()))
             }
             None => {
                 if v.is_empty() {
-                    return Ok(None);
+                    Ok(None)
                 } else {
                     self.last_cr = result.2;
 
-                    return Ok(Some(String::from_utf8_lossy(&v).to_string()));
+                    Ok(Some(String::from_utf8_lossy(&v).to_string()))
                 }
+            }
+        }
+    }
+}
+
+impl<R: Read> Scanner<R> {
+    pub fn skip_whitespaces(&mut self) -> Result<bool, ScannerError> {
+        self.last_cr = false;
+
+        let result = self.fetch_next_non_whitespace()?;
+
+        match result {
+            Some(t) => {
+                self.pull(t);
+
+                return Ok(true);
+            }
+            None => {
+                Ok(false)
+            }
+        }
+    }
+
+    pub fn next(&mut self) -> Result<Option<String>, ScannerError> {
+        let result = self.skip_whitespaces()?;
+
+        if result {
+            let result = self.fetch_next_whitespace()?;
+
+            let mut v = result.0;
+
+            match result.1 {
+                Some(t) => {
+                    v.extend_from_slice(&self.buffer[..t]);
+
+                    self.pull(t);
+
+                    Ok(Some(String::from_utf8_lossy(&v).to_string()))
+                }
+                None => {
+                    if v.is_empty() {
+                        Ok(None)
+                    } else {
+                        Ok(Some(String::from_utf8_lossy(&v).to_string()))
+                    }
+                }
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn next_u8(&mut self) -> Result<Option<u8>, ScannerError> {
+        let result = self.next()?;
+
+        match result {
+            Some(s) => {
+                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
+            }
+            None => {
+                Ok(None)
+            }
+        }
+    }
+
+    pub fn next_u16(&mut self) -> Result<Option<u16>, ScannerError> {
+        let result = self.next()?;
+
+        match result {
+            Some(s) => {
+                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
+            }
+            None => {
+                Ok(None)
+            }
+        }
+    }
+
+    pub fn next_u32(&mut self) -> Result<Option<u32>, ScannerError> {
+        let result = self.next()?;
+
+        match result {
+            Some(s) => {
+                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
+            }
+            None => {
+                Ok(None)
+            }
+        }
+    }
+
+    pub fn next_u64(&mut self) -> Result<Option<u64>, ScannerError> {
+        let result = self.next()?;
+
+        match result {
+            Some(s) => {
+                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
+            }
+            None => {
+                Ok(None)
+            }
+        }
+    }
+
+    pub fn next_u128(&mut self) -> Result<Option<u128>, ScannerError> {
+        let result = self.next()?;
+
+        match result {
+            Some(s) => {
+                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
+            }
+            None => {
+                Ok(None)
+            }
+        }
+    }
+
+    pub fn next_i8(&mut self) -> Result<Option<i8>, ScannerError> {
+        let result = self.next()?;
+
+        match result {
+            Some(s) => {
+                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
+            }
+            None => {
+                Ok(None)
+            }
+        }
+    }
+
+    pub fn next_i16(&mut self) -> Result<Option<i16>, ScannerError> {
+        let result = self.next()?;
+
+        match result {
+            Some(s) => {
+                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
+            }
+            None => {
+                Ok(None)
+            }
+        }
+    }
+
+    pub fn next_i32(&mut self) -> Result<Option<i32>, ScannerError> {
+        let result = self.next()?;
+
+        match result {
+            Some(s) => {
+                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
+            }
+            None => {
+                Ok(None)
+            }
+        }
+    }
+
+    pub fn next_i64(&mut self) -> Result<Option<i64>, ScannerError> {
+        let result = self.next()?;
+
+        match result {
+            Some(s) => {
+                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
+            }
+            None => {
+                Ok(None)
+            }
+        }
+    }
+
+    pub fn next_i128(&mut self) -> Result<Option<i128>, ScannerError> {
+        let result = self.next()?;
+
+        match result {
+            Some(s) => {
+                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
+            }
+            None => {
+                Ok(None)
+            }
+        }
+    }
+
+    pub fn next_f32(&mut self) -> Result<Option<f32>, ScannerError> {
+        let result = self.next()?;
+
+        match result {
+            Some(s) => {
+                Ok(Some(s.parse().map_err(|err| ScannerError::ParseFloatError(err))?))
+            }
+            None => {
+                Ok(None)
+            }
+        }
+    }
+
+    pub fn next_f64(&mut self) -> Result<Option<f64>, ScannerError> {
+        let result = self.next()?;
+
+        match result {
+            Some(s) => {
+                Ok(Some(s.parse().map_err(|err| ScannerError::ParseFloatError(err))?))
+            }
+            None => {
+                Ok(None)
             }
         }
     }

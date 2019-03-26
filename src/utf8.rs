@@ -19,11 +19,11 @@ static UTF8_CHAR_WIDTH: [u8; 256] = [
 ];
 
 #[cfg(not(feature = "nightly"))]
-pub fn utf8_char_width(b: u8) -> usize {
+pub(crate) fn utf8_char_width(b: u8) -> usize {
     UTF8_CHAR_WIDTH[b as usize] as usize
 }
 
 #[cfg(feature = "nightly")]
-pub fn utf8_char_width(b: u8) -> usize {
+pub(crate) fn utf8_char_width(b: u8) -> usize {
     core::str::utf8_char_width(b)
 }
