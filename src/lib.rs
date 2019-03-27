@@ -410,7 +410,7 @@ impl<R: Read> Scanner<R> {
                         return Ok(Some(p));
                     } else {
                         match width {
-                            2 => {}
+                            2 | 4 => {}
                             3 => {
                                 if !is_whitespace_3(self.buffer[p], self.buffer[p + 1], self.buffer[p + 2]) {
                                     return Ok(Some(p));
@@ -523,7 +523,7 @@ impl<R: Read> Scanner<R> {
                         return Ok((temp, Some(self.position)));
                     } else {
                         match width {
-                            2 => {}
+                            2 | 4 => {}
                             3 => {
                                 if is_whitespace_3(self.buffer[p], self.buffer[p + 1], self.buffer[p + 2]) {
                                     return Ok((temp, Some(p)));
