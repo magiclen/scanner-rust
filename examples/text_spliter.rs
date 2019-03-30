@@ -16,7 +16,7 @@ fn main() -> Result<(), io::Error> {
     let mut sc = Scanner::new(io::stdin());
 
     let directory = loop {
-        print!("Input a existing directory: ");
+        print!("Input an existing directory: ");
 
         io::stdout().flush().unwrap();
 
