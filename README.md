@@ -26,6 +26,8 @@ assert_eq!(Some("\tHello world!".into()), sc.next_line().unwrap());
 assert_eq!(None, sc.next_line().unwrap());
 ```
 
+See `examples`.
+
 ## Crates.io
 
 https://crates.io/crates/scanner-rust
