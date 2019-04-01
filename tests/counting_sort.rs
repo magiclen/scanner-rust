@@ -5,7 +5,7 @@ use std::fmt::Write;
 use scanner_rust::Scanner;
 
 #[cfg(windows)]
-const INPUT_DATA_PATH: &'static str = r"tests/data\input_1.txt";
+const INPUT_DATA_PATH: &'static str = r"tests\data\input_1.txt";
 
 #[cfg(not(windows))]
 const INPUT_DATA_PATH: &'static str = r"tests/data/input_1.txt";
