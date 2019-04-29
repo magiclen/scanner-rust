@@ -61,6 +61,27 @@ impl Display for ScannerError {
     }
 }
 
+impl From<io::Error> for ScannerError {
+    #[inline]
+    fn from(err: io::Error) -> ScannerError {
+        ScannerError::IOError(err)
+    }
+}
+
+impl From<ParseIntError> for ScannerError {
+    #[inline]
+    fn from(err: ParseIntError) -> ScannerError {
+        ScannerError::ParseIntError(err)
+    }
+}
+
+impl From<ParseFloatError> for ScannerError {
+    #[inline]
+    fn from(err: ParseFloatError) -> ScannerError {
+        ScannerError::ParseFloatError(err)
+    }
+}
+
 /// A simple text scanner which can parse primitive types and strings using UTF-8.
 pub struct Scanner<R: Read> {
     reader: R,
@@ -81,6 +102,7 @@ impl<R: Read> Scanner<R> {
     ///
     /// let mut sc = Scanner::with_capacity(io::stdin(), 1024);
     /// ```
+    #[inline]
     pub fn with_capacity(reader: R, capacity: usize) -> Scanner<R> {
         assert!(capacity >= 4);
 
@@ -109,6 +131,7 @@ impl<R: Read> Scanner<R> {
     ///
     /// let mut sc = Scanner::new(io::stdin());
     /// ```
+    #[inline]
     pub fn new(reader: R) -> Scanner<R> {
         Self::with_capacity(reader, DEFAULT_BUFFER_SIZE)
     }
@@ -126,6 +149,7 @@ impl<R: Read> Scanner<R> {
     ///
     /// let mut sc = Scanner::scan_stream(io::stdin());
     /// ```
+    #[inline]
     pub fn scan_stream(reader: R) -> Scanner<R> {
         Self::new(reader)
     }
@@ -143,6 +167,7 @@ impl Scanner<File> {
     ///
     /// let mut sc = Scanner::scan_file(File::open("Cargo.toml").unwrap()).unwrap();
     /// ```
+    #[inline]
     pub fn scan_file(file: File) -> Result<Scanner<File>, ScannerError> {
         let metadata = file.metadata().map_err(|err| ScannerError::IOError(err))?;
 
@@ -181,6 +206,7 @@ impl Scanner<Cursor<String>> {
     ///
     /// let mut sc = Scanner::scan_string(String::from("5 12 2.4 c 中文也行"));
     /// ```
+    #[inline]
     pub fn scan_string<S: Into<String>>(s: S) -> Scanner<Cursor<String>> {
         let s = s.into();
 
@@ -202,6 +228,7 @@ impl Scanner<&[u8]> {
     ///
     /// let mut sc = Scanner::scan_slice("5 12 2.4 c 中文也行");
     /// ```
+    #[inline]
     pub fn scan_slice<B: AsRef<[u8]> + ?Sized>(b: &B) -> Scanner<&[u8]> {
         let b = b.as_ref();
 
@@ -225,6 +252,7 @@ impl Scanner<Cursor<Vec<u8>>> {
     ///
     /// let mut sc = Scanner::scan_vec(v);
     /// ```
+    #[inline]
     pub fn scan_vec(v: Vec<u8>) -> Scanner<Cursor<Vec<u8>>> {
         let size = v.len();
 
@@ -235,6 +263,7 @@ impl Scanner<Cursor<Vec<u8>>> {
 }
 
 impl<R: Read> Scanner<R> {
+    #[inline]
     fn pull(&mut self, length: usize) {
         if length < self.position {
             unsafe {
@@ -248,6 +277,7 @@ impl<R: Read> Scanner<R> {
     }
 
     /// Get the data remaining in the buffer.
+    #[inline]
     pub fn get_remains(&self) -> &[u8] {
         &self.buffer[..self.position]
     }
