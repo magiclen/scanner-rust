@@ -51,6 +51,7 @@ pub enum ScannerError {
 }
 
 impl Display for ScannerError {
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             ScannerError::IOError(err) => Display::fmt(&err, f),
