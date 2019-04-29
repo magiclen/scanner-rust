@@ -35,6 +35,7 @@ use std::fs::File;
 use std::ptr::copy;
 use std::num::{ParseIntError, ParseFloatError};
 use std::char::REPLACEMENT_CHARACTER;
+use std::fmt::{self, Formatter, Display};
 
 use self::utf8::*;
 use self::whitespaces::*;
@@ -47,6 +48,16 @@ pub enum ScannerError {
     IOError(io::Error),
     ParseIntError(ParseIntError),
     ParseFloatError(ParseFloatError),
+}
+
+impl Display for ScannerError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            ScannerError::IOError(err) => Display::fmt(&err, f),
+            ScannerError::ParseIntError(err) => Display::fmt(&err, f),
+            ScannerError::ParseFloatError(err) => Display::fmt(&err, f)
+        }
+    }
 }
 
 /// A simple text scanner which can parse primitive types and strings using UTF-8.
