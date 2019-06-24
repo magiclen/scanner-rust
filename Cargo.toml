@@ -1,6 +1,6 @@
 [package]
 name = "scanner-rust"
-version = "1.2.0"
+version = "1.2.1"
 authors = ["Magic Len <len@magiclen.org>"]
 edition = "2018"
 repository = "https://github.com/magiclen/scanner-rust"
@@ -16,6 +16,7 @@ travis-ci = { repository = "magiclen/scanner-rust", branch = "master" }
 appveyor = { repository = "magiclen/scanner-rust", branch = "master", service = "github" }
 
 [dependencies]
+derivative = "1"
 
 [features]
 nightly = []

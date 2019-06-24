@@ -26,6 +26,9 @@ assert_eq!(None, sc.next_line().unwrap());
 */
 #![cfg_attr(feature = "nightly", feature(str_internals))]
 
+#[macro_use]
+extern crate derivative;
+
 mod utf8;
 mod whitespaces;
 
@@ -83,7 +86,10 @@ impl From<ParseFloatError> for ScannerError {
 }
 
 /// A simple text scanner which can parse primitive types and strings using UTF-8.
+#[derive(Derivative)]
+#[derivative(Debug)]
 pub struct Scanner<R: Read> {
+    #[derivative(Debug = "ignore")]
     reader: R,
     buffer: Vec<u8>,
     position: usize,
