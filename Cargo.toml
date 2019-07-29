@@ -1,6 +1,6 @@
 [package]
 name = "scanner-rust"
-version = "1.2.1"
+version = "1.2.2"
 authors = ["Magic Len <len@magiclen.org>"]
 edition = "2018"
 repository = "https://github.com/magiclen/scanner-rust"
@@ -11,12 +11,12 @@ description= "A simple text scanner which can parse primitive types and strings 
 readme = "README.md"
 license = "MIT"
 
-[badges]
-travis-ci = { repository = "magiclen/scanner-rust", branch = "master" }
-appveyor = { repository = "magiclen/scanner-rust", branch = "master", service = "github" }
+[badges.travis-ci]
+repository = "magiclen/scanner-rust"
+branch = "master"
 
 [dependencies]
-derivative = "1"
+educe = ">=0.0.1"
 
 [features]
 nightly = []
