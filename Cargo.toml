@@ -1,6 +1,6 @@
 [package]
 name = "scanner-rust"
-version = "1.2.2"
+version = "1.2.3"
 authors = ["Magic Len <len@magiclen.org>"]
 edition = "2018"
 repository = "https://github.com/magiclen/scanner-rust"
@@ -16,7 +16,11 @@ repository = "magiclen/scanner-rust"
 branch = "master"
 
 [dependencies]
-educe = ">=0.0.1"
+
+[dependencies.educe]
+version = ">=0.4.0"
+features = ["Debug"]
+default-features = false
 
 [features]
 nightly = []
