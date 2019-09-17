@@ -4,11 +4,7 @@ use std::fmt::Write;
 
 use scanner_rust::Scanner;
 
-#[cfg(windows)]
-const INPUT_DATA_PATH: &'static str = r"tests\data\input_1.txt";
-
-#[cfg(not(windows))]
-const INPUT_DATA_PATH: &'static str = r"tests/data/input_1.txt";
+const INPUT_DATA_PATH: &str = r"tests/data/input_1.txt";
 
 #[test]
 fn counting_sort() {
@@ -26,9 +22,7 @@ fn counting_sort() {
 
     let mut s = String::new();
 
-    for i in 0..100 {
-        let v = count[i];
-
+    for (i, &v) in count.iter().enumerate().take(100) {
         if v > 0 {
             for _ in 0..v {
                 s.write_fmt(format_args!("{} ", i)).unwrap();

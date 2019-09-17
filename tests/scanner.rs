@@ -1,3 +1,5 @@
+#![allow(clippy::cognitive_complexity, clippy::unreadable_literal)]
+
 extern crate scanner_rust;
 
 use scanner_rust::Scanner;

@@ -32,13 +32,13 @@ extern crate educe;
 mod utf8;
 mod whitespaces;
 
-use std::io::{self, Read, Cursor};
-use std::path::Path;
-use std::fs::File;
-use std::ptr::copy;
-use std::num::{ParseIntError, ParseFloatError};
 use std::char::REPLACEMENT_CHARACTER;
-use std::fmt::{self, Formatter, Display};
+use std::fmt::{self, Display, Formatter};
+use std::fs::File;
+use std::io::{self, Cursor, Read};
+use std::num::{ParseFloatError, ParseIntError};
+use std::path::Path;
+use std::ptr::copy;
 
 use self::utf8::*;
 use self::whitespaces::*;
@@ -59,7 +59,7 @@ impl Display for ScannerError {
         match self {
             ScannerError::IOError(err) => Display::fmt(&err, f),
             ScannerError::ParseIntError(err) => Display::fmt(&err, f),
-            ScannerError::ParseFloatError(err) => Display::fmt(&err, f)
+            ScannerError::ParseFloatError(err) => Display::fmt(&err, f),
         }
     }
 }
@@ -175,7 +175,7 @@ impl Scanner<File> {
     /// ```
     #[inline]
     pub fn scan_file(file: File) -> Result<Scanner<File>, ScannerError> {
-        let metadata = file.metadata().map_err(|err| ScannerError::IOError(err))?;
+        let metadata = file.metadata()?;
 
         let size = metadata.len();
 
@@ -196,7 +196,7 @@ impl Scanner<File> {
     /// let mut sc = Scanner::scan_path("Cargo.toml").unwrap();
     /// ```
     pub fn scan_path<P: AsRef<Path>>(path: P) -> Result<Scanner<File>, ScannerError> {
-        let file = File::open(path).map_err(|err| ScannerError::IOError(err))?;
+        let file = File::open(path)?;
 
         Self::scan_file(file)
     }
@@ -273,7 +273,11 @@ impl<R: Read> Scanner<R> {
     fn pull(&mut self, length: usize) {
         if length < self.position {
             unsafe {
-                copy(self.buffer.as_ptr().add(length), self.buffer.as_mut_ptr(), self.position - length);
+                copy(
+                    self.buffer.as_ptr().add(length),
+                    self.buffer.as_mut_ptr(),
+                    self.position - length,
+                );
             }
 
             self.position -= length;
@@ -297,7 +301,7 @@ impl<R: Read> Scanner<R> {
             let size = {
                 let buffer = &mut self.buffer[self.position..];
 
-                self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                self.reader.read(buffer)?
             };
 
             if size == 0 {
@@ -340,7 +344,7 @@ impl<R: Read> Scanner<R> {
                         let size = {
                             let buffer = &mut self.buffer[self.position..];
 
-                            self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                            self.reader.read(buffer)?
                         };
 
                         if size == 0 {
@@ -369,7 +373,7 @@ impl<R: Read> Scanner<R> {
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
 
-                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                        self.reader.read(buffer)?
                     };
 
                     if size == 0 {
@@ -381,7 +385,7 @@ impl<R: Read> Scanner<R> {
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
 
-                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                        self.reader.read(buffer)?
                     };
 
                     if size == 0 {
@@ -401,7 +405,7 @@ impl<R: Read> Scanner<R> {
             let size = {
                 let buffer = &mut self.buffer[self.position..];
 
-                self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                self.reader.read(buffer)?
             };
 
             if size == 0 {
@@ -444,7 +448,7 @@ impl<R: Read> Scanner<R> {
                         let size = {
                             let buffer = &mut self.buffer[self.position..];
 
-                            self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                            self.reader.read(buffer)?
                         };
 
                         if size == 0 {
@@ -460,13 +464,15 @@ impl<R: Read> Scanner<R> {
                         match width {
                             2 | 4 => {}
                             3 => {
-                                if !is_whitespace_3(self.buffer[p], self.buffer[p + 1], self.buffer[p + 2]) {
+                                if !is_whitespace_3(
+                                    self.buffer[p],
+                                    self.buffer[p + 1],
+                                    self.buffer[p + 2],
+                                ) {
                                     return Ok(Some(p));
                                 }
                             }
-                            _ => {
-                                unreachable!()
-                            }
+                            _ => unreachable!(),
                         }
                         p = wp;
                     }
@@ -482,7 +488,7 @@ impl<R: Read> Scanner<R> {
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
 
-                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                        self.reader.read(buffer)?
                     };
 
                     if size == 0 {
@@ -494,7 +500,7 @@ impl<R: Read> Scanner<R> {
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
 
-                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                        self.reader.read(buffer)?
                     };
 
                     if size == 0 {
@@ -516,7 +522,7 @@ impl<R: Read> Scanner<R> {
             let size = {
                 let buffer = &mut self.buffer[self.position..];
 
-                self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                self.reader.read(buffer)?
             };
 
             if size == 0 {
@@ -557,7 +563,7 @@ impl<R: Read> Scanner<R> {
                         let size = {
                             let buffer = &mut self.buffer[self.position..];
 
-                            self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                            self.reader.read(buffer)?
                         };
 
                         if size == 0 {
@@ -573,13 +579,15 @@ impl<R: Read> Scanner<R> {
                         match width {
                             2 | 4 => {}
                             3 => {
-                                if is_whitespace_3(self.buffer[p], self.buffer[p + 1], self.buffer[p + 2]) {
+                                if is_whitespace_3(
+                                    self.buffer[p],
+                                    self.buffer[p + 1],
+                                    self.buffer[p + 2],
+                                ) {
                                     return Ok((temp, Some(p)));
                                 }
                             }
-                            _ => {
-                                unreachable!()
-                            }
+                            _ => unreachable!(),
                         }
                         p = wp;
                     }
@@ -597,7 +605,7 @@ impl<R: Read> Scanner<R> {
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
 
-                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                        self.reader.read(buffer)?
                     };
 
                     if size == 0 {
@@ -609,7 +617,7 @@ impl<R: Read> Scanner<R> {
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
 
-                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                        self.reader.read(buffer)?
                     };
 
                     if size == 0 {
@@ -648,7 +656,7 @@ impl<R: Read> Scanner<R> {
             let size = {
                 let buffer = &mut self.buffer[..];
 
-                self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                self.reader.read(buffer)?
             };
 
             if size == 0 {
@@ -678,7 +686,7 @@ impl<R: Read> Scanner<R> {
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
 
-                        self.reader.read(buffer).map_err(|err| ScannerError::IOError(err))?
+                        self.reader.read(buffer)?
                     };
 
                     if size == 0 {
@@ -694,9 +702,7 @@ impl<R: Read> Scanner<R> {
                     Ok(None)
                 } else {
                     let s = match core::str::from_utf8(&self.buffer[..width]) {
-                        Ok(s) => {
-                            s.chars().next()
-                        }
+                        Ok(s) => s.chars().next(),
                         Err(_) => {
                             self.pull(1);
 
@@ -737,12 +743,10 @@ impl<R: Read> Scanner<R> {
 
                 self.pull(t + 1);
 
-                if v.is_empty() && !result.2 {
-                    if self.last_cr {
-                        self.last_cr = false;
+                if v.is_empty() && !result.2 && self.last_cr {
+                    self.last_cr = false;
 
-                        return self.next_line();
-                    }
+                    return self.next_line();
                 }
 
                 self.last_cr = result.2;
@@ -790,11 +794,9 @@ impl<R: Read> Scanner<R> {
             Some(t) => {
                 self.pull(t);
 
-                return Ok(true);
+                Ok(true)
             }
-            None => {
-                Ok(false)
-            }
+            None => Ok(false),
         }
     }
 
@@ -813,6 +815,7 @@ impl<R: Read> Scanner<R> {
     /// assert_eq!(Some("中文".into()), sc.next().unwrap());
     /// assert_eq!(None, sc.next().unwrap());
     /// ```
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<String>, ScannerError> {
         let result = self.skip_whitespaces()?;
 
@@ -858,12 +861,8 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
     }
 
@@ -883,12 +882,8 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
     }
 
@@ -908,12 +903,8 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
     }
 
@@ -933,12 +924,8 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
     }
 
@@ -958,12 +945,8 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
     }
 
@@ -983,12 +966,8 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
     }
 
@@ -1008,12 +987,8 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
     }
 
@@ -1033,12 +1008,8 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
     }
 
@@ -1058,12 +1029,8 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
     }
 
@@ -1083,12 +1050,8 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
     }
 
@@ -1108,12 +1071,8 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
     }
 
@@ -1133,12 +1092,8 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseIntError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
     }
 
@@ -1158,12 +1113,8 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseFloatError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
     }
 
@@ -1183,12 +1134,17 @@ impl<R: Read> Scanner<R> {
         let result = self.next()?;
 
         match result {
-            Some(s) => {
-                Ok(Some(s.parse().map_err(|err| ScannerError::ParseFloatError(err))?))
-            }
-            None => {
-                Ok(None)
-            }
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
         }
+    }
+}
+
+impl<R: Read> Iterator for Scanner<R> {
+    type Item = String;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next().unwrap_or(None)
     }
 }

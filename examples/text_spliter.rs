@@ -5,9 +5,9 @@ Input an existing directory and a text file, and this tool can help you split th
 */
 extern crate scanner_rust;
 
+use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::fs;
 
 use scanner_rust::Scanner;
 use std::io::Write;
@@ -32,7 +32,7 @@ fn main() -> Result<(), io::Error> {
 
                 break path;
             }
-            None => return Ok(())
+            None => return Ok(()),
         }
     };
 
@@ -53,7 +53,7 @@ fn main() -> Result<(), io::Error> {
 
                 break path;
             }
-            None => return Ok(())
+            None => return Ok(()),
         }
     };
 
