@@ -33,6 +33,7 @@ mod utf8;
 mod whitespaces;
 
 use std::char::REPLACEMENT_CHARACTER;
+use std::error::Error;
 use std::fmt::{self, Display, Formatter};
 use std::fs::File;
 use std::io::{self, Cursor, Read};
@@ -63,6 +64,8 @@ impl Display for ScannerError {
         }
     }
 }
+
+impl Error for ScannerError {}
 
 impl From<io::Error> for ScannerError {
     #[inline]
