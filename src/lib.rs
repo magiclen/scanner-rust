@@ -770,6 +770,67 @@ impl<R: Read> Scanner<R> {
 }
 
 impl<R: Read> Scanner<R> {
+    /// Read the next char as UTF-8 bytes `(bytes, width)` but remain it in the buffer. If the data is not a correct char, it will return a `Ok(([0, 0, 0, 0], 1))`. If there is nothing to read, it will return `Ok(None)`.
+    fn next_char_bytes(&mut self) -> Result<Option<([u8; 4], usize)>, ScannerError> {
+        self.last_cr = false;
+
+        if self.position == 0 {
+            let size = {
+                let buffer = &mut self.buffer[..];
+
+                self.reader.read(buffer)?
+            };
+
+            if size == 0 {
+                return Ok(None);
+            }
+
+            self.position += size;
+        }
+
+        let width = utf8_char_width(self.buffer[0]);
+
+        match width {
+            0 => {
+                Ok(Some(([0, 0, 0, 0], 1)))
+            }
+            1 => {
+                let bytes = [self.buffer[0], 0, 0, 0];
+
+                Ok(Some((bytes, 1)))
+            }
+            _ => {
+                while self.position < width {
+                    let size = {
+                        let buffer = &mut self.buffer[self.position..];
+
+                        self.reader.read(buffer)?
+                    };
+
+                    if size == 0 {
+                        break;
+                    }
+
+                    self.position += size;
+                }
+
+                if self.position < width {
+                    Ok(None)
+                } else {
+                    if core::str::from_utf8(&self.buffer[..width]).is_err() {
+                        return Ok(None);
+                    }
+
+                    let mut bytes = [0; 4];
+
+                    bytes[..width].copy_from_slice(&self.buffer[..width]);
+
+                    Ok(Some((bytes, width)))
+                }
+            }
+        }
+    }
+
     /// Skip the next whitespaces (`javaWhitespace`). If there is nothing to read, it will return `Ok(false)`.
     ///
     /// ```rust
@@ -803,7 +864,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -848,7 +909,175 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and the kinds of characters used for identifiers. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::Scanner;
+    ///
+    /// let mut sc = Scanner::scan_slice("a1B_c a1B.c a1B.-c a1B..c web:MagicLen 中文 ");
+    ///
+    /// assert_eq!(Some("a1B_c".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some("a1B".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some(".".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some("c".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some("a1B".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some(".".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some("-".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some("c".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some("a1B".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some("..".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some("c".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some("web".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some(":".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some("MagicLen".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(Some("中文".into()), sc.next_identifier_token().unwrap());
+    /// assert_eq!(None, sc.next_identifier_token().unwrap());
+    /// ```
+    pub fn next_identifier_token(&mut self) -> Result<Option<String>, ScannerError> {
+        let result = self.skip_whitespaces()?;
+
+        if result {
+            let first_char = self.next_char_bytes()?;
+
+            let get_type = |c: &([u8; 4], usize)| {
+                match c.1 {
+                    1 => {
+                        let c = c.0[0];
+
+                        if c >= 48 && c <= 57 || c >= 65 && c <= 90 || c >= 97 && c <= 122 || c == 95 {
+                            0
+                        } else {
+                            c
+                        }
+                    }
+                    _ => {
+                        1
+                    }
+                }
+            };
+
+            match first_char {
+                Some(c) => {
+                    self.pull(c.1);
+
+                    let mut v = Vec::with_capacity(c.1);
+
+                    v.extend_from_slice(&c.0[..c.1]);
+
+                    let first_typ = get_type(&c);
+
+                    while let Some(c) = self.next_char_bytes()? {
+                        let typ = get_type(&c);
+
+                        if typ != first_typ {
+                            break;
+                        }
+
+                        self.pull(c.1);
+
+                        v.extend_from_slice(&c.0[..c.1]);
+                    }
+
+                    Ok(Some(unsafe { String::from_utf8_unchecked(v) }))
+                }
+                None => {
+                    Ok(None)
+                }
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Read the next token separated by whitespaces and the kinds of characters used for equations. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::Scanner;
+    ///
+    /// let mut sc = Scanner::scan_slice("1.5+x/10-1+5*100");
+    ///
+    /// assert_eq!(Some("1.5".into()), sc.next_equation_token().unwrap());
+    /// assert_eq!(Some("+".into()), sc.next_equation_token().unwrap());
+    /// assert_eq!(Some("x".into()), sc.next_equation_token().unwrap());
+    /// assert_eq!(Some("/".into()), sc.next_equation_token().unwrap());
+    /// assert_eq!(Some("10".into()), sc.next_equation_token().unwrap());
+    /// assert_eq!(Some("-".into()), sc.next_equation_token().unwrap());
+    /// assert_eq!(Some("1".into()), sc.next_equation_token().unwrap());
+    /// assert_eq!(Some("+".into()), sc.next_equation_token().unwrap());
+    /// assert_eq!(Some("5".into()), sc.next_equation_token().unwrap());
+    /// assert_eq!(Some("*".into()), sc.next_equation_token().unwrap());
+    /// assert_eq!(Some("100".into()), sc.next_equation_token().unwrap());
+    /// assert_eq!(None, sc.next_equation_token().unwrap());
+    /// ```
+    pub fn next_equation_token(&mut self) -> Result<Option<String>, ScannerError> {
+        let result = self.skip_whitespaces()?;
+
+        if result {
+            let first_char = self.next_char_bytes()?;
+
+            let get_type = |c: &([u8; 4], usize)| {
+                match c.1 {
+                    1 => {
+                        let c = c.0[0];
+
+                        if c >= 48 && c <= 57 {
+                            0
+                        } else if c >= 65 && c <= 90 || c >= 97 && c <= 122 {
+                            1
+                        } else if c == 46 {
+                            2
+                        } else {
+                            c
+                        }
+                    }
+                    _ => {
+                        1
+                    }
+                }
+            };
+
+            match first_char {
+                Some(c) => {
+                    self.pull(c.1);
+
+                    let mut v = Vec::with_capacity(c.1);
+
+                    v.extend_from_slice(&c.0[..c.1]);
+
+                    let first_typ = get_type(&c);
+
+                    while let Some(c) = self.next_char_bytes()? {
+                        let typ = get_type(&c);
+
+                        if typ != first_typ {
+                            if first_typ == 0 && typ == 2 {
+                                // do nothing
+                            } else {
+                                break;
+                            }
+                        }
+
+                        self.pull(c.1);
+
+                        v.extend_from_slice(&c.0[..c.1]);
+                    }
+
+                    Ok(Some(unsafe { String::from_utf8_unchecked(v) }))
+                }
+                None => {
+                    Ok(None)
+                }
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Read the next token separated by whitespaces and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -869,7 +1098,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -890,7 +1119,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -911,7 +1140,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -932,7 +1161,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -953,7 +1182,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -974,7 +1203,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -995,7 +1224,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -1016,7 +1245,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -1037,7 +1266,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -1058,7 +1287,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -1079,7 +1308,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -1100,7 +1329,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -1121,7 +1350,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Read the next token seperated by whitespaces and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next token separated by whitespaces and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
