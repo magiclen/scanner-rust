@@ -992,7 +992,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Drop the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(false)`.
+    /// Drop the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -1001,13 +1001,13 @@ impl<R: Read> Scanner<R> {
     ///
     /// let mut sc = Scanner::scan_slice("123 456\r\n789 \n\n 中文 ");
     ///
-    /// assert_eq!(true, sc.drop_next_line().unwrap());
+    /// assert_eq!(Some(7), sc.drop_next_line().unwrap());
     /// assert_eq!(Some("789 ".into()), sc.next_line().unwrap());
-    /// assert_eq!(true, sc.drop_next_line().unwrap());
+    /// assert_eq!(Some(0), sc.drop_next_line().unwrap());
     /// assert_eq!(Some(" 中文 ".into()), sc.next_line().unwrap());
-    /// assert_eq!(false, sc.drop_next_line().unwrap());
+    /// assert_eq!(None, sc.drop_next_line().unwrap());
     /// ```
-    pub fn drop_next_line(&mut self) -> Result<bool, ScannerError> {
+    pub fn drop_next_line(&mut self) -> Result<Option<usize>, ScannerError> {
         let (mut temp, processing_length, last_cr) = self.fetch_next_line_but_drop()?;
 
         match processing_length {
@@ -1024,16 +1024,16 @@ impl<R: Read> Scanner<R> {
                 } else {
                     self.last_cr = last_cr;
 
-                    Ok(true)
+                    Ok(Some(temp))
                 }
             }
             None => {
                 if temp == 0 {
-                    Ok(false)
+                    Ok(None)
                 } else {
                     self.last_cr = last_cr;
 
-                    Ok(true)
+                    Ok(Some(temp))
                 }
             }
         }
@@ -1176,7 +1176,7 @@ impl<R: Read> Scanner<R> {
         }
     }
 
-    /// Drop the next token separated by whitespaces. If there is nothing to read, it will return `Ok(false)`.
+    /// Drop the next token separated by whitespaces. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// extern crate scanner_rust;
@@ -1185,35 +1185,37 @@ impl<R: Read> Scanner<R> {
     ///
     /// let mut sc = Scanner::scan_slice("123 456\r\n789 \n\n 中文 ");
     ///
-    /// assert_eq!(true, sc.drop_next().unwrap());
+    /// assert_eq!(Some(3), sc.drop_next().unwrap());
     /// assert_eq!(Some("456".into()), sc.next().unwrap());
-    /// assert_eq!(true, sc.drop_next().unwrap());
+    /// assert_eq!(Some(3), sc.drop_next().unwrap());
     /// assert_eq!(Some("中文".into()), sc.next().unwrap());
-    /// assert_eq!(false, sc.drop_next().unwrap());
+    /// assert_eq!(None, sc.drop_next().unwrap());
     /// ```
     #[allow(clippy::should_implement_trait)]
-    pub fn drop_next(&mut self) -> Result<bool, ScannerError> {
+    pub fn drop_next(&mut self) -> Result<Option<usize>, ScannerError> {
         let result = self.skip_whitespaces()?;
 
         if result {
-            let (temp, processing_length) = self.fetch_next_whitespace_but_drop()?;
+            let (mut temp, processing_length) = self.fetch_next_whitespace_but_drop()?;
 
             match processing_length {
                 Some(processing_length) => {
+                    temp += processing_length;
+
                     self.pull(processing_length);
 
-                    Ok(true)
+                    Ok(Some(temp))
                 }
                 None => {
                     if temp == 0 {
-                        Ok(false)
+                        Ok(None)
                     } else {
-                        Ok(true)
+                        Ok(Some(temp))
                     }
                 }
             }
         } else {
-            Ok(false)
+            Ok(None)
         }
     }
 
