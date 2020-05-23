@@ -23,6 +23,7 @@ assert_eq!(Some("\tHello world!".into()), sc.next_line().unwrap());
 assert_eq!(None, sc.next_line().unwrap());
 ```
 
+Besides, the `drop_next` and `drop_next_line` methods are useful when you want to skip some substrings.
 */
 #![cfg_attr(feature = "nightly", feature(str_internals))]
 
@@ -272,6 +273,7 @@ impl Scanner<Cursor<Vec<u8>>> {
 }
 
 impl<R: Read> Scanner<R> {
+    /// Left shift the buffer for a specific distance/length.
     #[inline]
     fn pull(&mut self, length: usize) {
         if length < self.position {
@@ -293,6 +295,112 @@ impl<R: Read> Scanner<R> {
     #[inline]
     pub fn get_remains(&self) -> &[u8] {
         &self.buffer[..self.position]
+    }
+
+    fn fetch_next_line_but_drop(&mut self) -> Result<(usize, Option<usize>, bool), ScannerError> {
+        let len = self.buffer.len();
+
+        let mut temp = 0;
+
+        if self.position == 0 {
+            let size = {
+                let buffer = &mut self.buffer[self.position..];
+
+                self.reader.read(buffer)?
+            };
+
+            if size == 0 {
+                return Ok((temp, None, false));
+            }
+
+            self.position += size;
+        }
+
+        let mut p = 0;
+
+        loop {
+            let width = utf8_char_width(self.buffer[p]);
+
+            match width {
+                0 => {
+                    p += 1;
+                }
+                1 => {
+                    if self.buffer[p] == b'\n' {
+                        return Ok((temp, Some(p), false));
+                    } else if self.buffer[p] == b'\r' {
+                        return Ok((temp, Some(p), true));
+                    }
+
+                    p += 1;
+                }
+                _ => {
+                    let mut wp = width + p;
+
+                    if wp > len {
+                        temp += self.position;
+
+                        self.position = 0;
+
+                        wp = width - 1;
+                    }
+
+                    while self.position < wp {
+                        let size = {
+                            let buffer = &mut self.buffer[self.position..];
+
+                            self.reader.read(buffer)?
+                        };
+
+                        if size == 0 {
+                            break;
+                        }
+
+                        self.position += size;
+                    }
+
+                    if self.position < wp {
+                        return Ok((temp, Some(self.position), false));
+                    } else {
+                        p = wp;
+                    }
+                }
+            }
+
+            if p == self.position {
+                if p == len {
+                    temp += len;
+
+                    self.position = 0;
+
+                    p = 0;
+
+                    let size = {
+                        let buffer = &mut self.buffer[self.position..];
+
+                        self.reader.read(buffer)?
+                    };
+
+                    if size == 0 {
+                        return Ok((temp, None, false));
+                    }
+
+                    self.position += size;
+                } else {
+                    let size = {
+                        let buffer = &mut self.buffer[self.position..];
+
+                        self.reader.read(buffer)?
+                    };
+
+                    if size == 0 {
+                        return Ok((temp, Some(p), false));
+                    }
+
+                    self.position += size;
+                }
+            }
+        }
     }
 
     fn fetch_next_line(&mut self) -> Result<(Vec<u8>, Option<usize>, bool), ScannerError> {
@@ -371,8 +479,6 @@ impl<R: Read> Scanner<R> {
 
                     self.position = 0;
 
-                    p = 0;
-
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
 
@@ -384,6 +490,8 @@ impl<R: Read> Scanner<R> {
                     }
 
                     self.position += size;
+
+                    p = 0;
                 } else {
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
@@ -516,6 +624,123 @@ impl<R: Read> Scanner<R> {
         }
     }
 
+    fn fetch_next_whitespace_but_drop(&mut self) -> Result<(usize, Option<usize>), ScannerError> {
+        let len = self.buffer.len();
+
+        let mut temp = 0;
+
+        if self.position == 0 {
+            let size = {
+                let buffer = &mut self.buffer[self.position..];
+
+                self.reader.read(buffer)?
+            };
+
+            if size == 0 {
+                return Ok((temp, None));
+            }
+
+            self.position += size;
+        }
+
+        let mut p = 0;
+
+        loop {
+            let width = utf8_char_width(self.buffer[p]);
+
+            match width {
+                0 => {
+                    p += 1;
+                }
+                1 => {
+                    if is_whitespace_1(self.buffer[p]) {
+                        return Ok((temp, Some(p)));
+                    }
+
+                    p += 1;
+                }
+                _ => {
+                    let mut wp = width + p;
+
+                    if wp > len {
+                        temp += self.position;
+
+                        self.position = 0;
+
+                        wp = width - 1;
+                    }
+
+                    while self.position < wp {
+                        let size = {
+                            let buffer = &mut self.buffer[self.position..];
+
+                            self.reader.read(buffer)?
+                        };
+
+                        if size == 0 {
+                            break;
+                        }
+
+                        self.position += size;
+                    }
+
+                    if self.position < wp {
+                        return Ok((temp, Some(self.position)));
+                    } else {
+                        match width {
+                            2 | 4 => {}
+                            3 => {
+                                if is_whitespace_3(
+                                    self.buffer[p],
+                                    self.buffer[p + 1],
+                                    self.buffer[p + 2],
+                                ) {
+                                    return Ok((temp, Some(p)));
+                                }
+                            }
+                            _ => unreachable!(),
+                        }
+                        p = wp;
+                    }
+                }
+            }
+
+            if p == self.position {
+                if p == len {
+                    temp += len;
+
+                    self.position = 0;
+
+                    let size = {
+                        let buffer = &mut self.buffer[self.position..];
+
+                        self.reader.read(buffer)?
+                    };
+
+                    if size == 0 {
+                        return Ok((temp, None));
+                    }
+
+                    self.position += size;
+
+                    p = 0;
+                } else {
+                    let size = {
+                        let buffer = &mut self.buffer[self.position..];
+
+                        self.reader.read(buffer)?
+                    };
+
+                    if size == 0 {
+                        return Ok((temp, Some(p)));
+                    }
+
+                    self.position += size;
+                }
+            }
+        }
+    }
+
     fn fetch_next_whitespace(&mut self) -> Result<(Vec<u8>, Option<usize>), ScannerError> {
         let len = self.buffer.len();
 
@@ -603,8 +828,6 @@ impl<R: Read> Scanner<R> {
 
                     self.position = 0;
 
-                    p = 0;
-
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
 
@@ -616,6 +839,8 @@ impl<R: Read> Scanner<R> {
                     }
 
                     self.position += size;
+
+                    p = 0;
                 } else {
                     let size = {
                         let buffer = &mut self.buffer[self.position..];
@@ -736,33 +961,79 @@ impl<R: Read> Scanner<R> {
     /// assert_eq!(Some(" 中文 ".into()), sc.next_line().unwrap());
     /// ```
     pub fn next_line(&mut self) -> Result<Option<String>, ScannerError> {
-        let result = self.fetch_next_line()?;
+        let (mut temp, processing_length, last_cr) = self.fetch_next_line()?;
 
-        let mut v = result.0;
+        match processing_length {
+            Some(processing_length) => {
+                temp.extend_from_slice(&self.buffer[..processing_length]);
 
-        match result.1 {
-            Some(t) => {
-                v.extend_from_slice(&self.buffer[..t]);
+                self.pull(processing_length + 1); // `+ 1` to remove '\n' or '\r'
 
-                self.pull(t + 1);
-
-                if v.is_empty() && !result.2 && self.last_cr {
+                if temp.is_empty() && !last_cr && self.last_cr {
+                    // to deal with '\r\n'
                     self.last_cr = false;
 
-                    return self.next_line();
+                    self.next_line()
+                } else {
+                    self.last_cr = last_cr;
+
+                    Ok(Some(String::from_utf8_lossy(&temp).to_string()))
                 }
-
-                self.last_cr = result.2;
-
-                Ok(Some(String::from_utf8_lossy(&v).to_string()))
             }
             None => {
-                if v.is_empty() {
+                if temp.is_empty() {
                     Ok(None)
                 } else {
-                    self.last_cr = result.2;
+                    self.last_cr = last_cr;
 
-                    Ok(Some(String::from_utf8_lossy(&v).to_string()))
+                    Ok(Some(String::from_utf8_lossy(&temp).to_string()))
+                }
+            }
+        }
+    }
+
+    /// Drop the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(false)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::Scanner;
+    ///
+    /// let mut sc = Scanner::scan_slice("123 456\r\n789 \n\n 中文 ");
+    ///
+    /// assert_eq!(true, sc.drop_next_line().unwrap());
+    /// assert_eq!(Some("789 ".into()), sc.next_line().unwrap());
+    /// assert_eq!(true, sc.drop_next_line().unwrap());
+    /// assert_eq!(Some(" 中文 ".into()), sc.next_line().unwrap());
+    /// assert_eq!(false, sc.drop_next_line().unwrap());
+    /// ```
+    pub fn drop_next_line(&mut self) -> Result<bool, ScannerError> {
+        let (mut temp, processing_length, last_cr) = self.fetch_next_line_but_drop()?;
+
+        match processing_length {
+            Some(processing_length) => {
+                temp += processing_length;
+
+                self.pull(processing_length + 1); // `+ 1` to remove '\n' or '\r'
+
+                if temp == 0 && !last_cr && self.last_cr {
+                    // to deal with '\r\n'
+                    self.last_cr = false;
+
+                    self.drop_next_line()
+                } else {
+                    self.last_cr = last_cr;
+
+                    Ok(true)
+                }
+            }
+            None => {
+                if temp == 0 {
+                    Ok(false)
+                } else {
+                    self.last_cr = last_cr;
+
+                    Ok(true)
                 }
             }
         }
@@ -791,9 +1062,7 @@ impl<R: Read> Scanner<R> {
         let width = utf8_char_width(self.buffer[0]);
 
         match width {
-            0 => {
-                Ok(Some(([0, 0, 0, 0], 1)))
-            }
+            0 => Ok(Some(([0, 0, 0, 0], 1))),
             1 => {
                 let bytes = [self.buffer[0], 0, 0, 0];
 
@@ -884,28 +1153,67 @@ impl<R: Read> Scanner<R> {
         let result = self.skip_whitespaces()?;
 
         if result {
-            let result = self.fetch_next_whitespace()?;
+            let (mut temp, processing_length) = self.fetch_next_whitespace()?;
 
-            let mut v = result.0;
+            match processing_length {
+                Some(processing_length) => {
+                    temp.extend_from_slice(&self.buffer[..processing_length]);
 
-            match result.1 {
-                Some(t) => {
-                    v.extend_from_slice(&self.buffer[..t]);
+                    self.pull(processing_length);
 
-                    self.pull(t);
-
-                    Ok(Some(String::from_utf8_lossy(&v).to_string()))
+                    Ok(Some(String::from_utf8_lossy(&temp).to_string()))
                 }
                 None => {
-                    if v.is_empty() {
+                    if temp.is_empty() {
                         Ok(None)
                     } else {
-                        Ok(Some(String::from_utf8_lossy(&v).to_string()))
+                        Ok(Some(String::from_utf8_lossy(&temp).to_string()))
                     }
                 }
             }
         } else {
             Ok(None)
+        }
+    }
+
+    /// Drop the next token separated by whitespaces. If there is nothing to read, it will return `Ok(false)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::Scanner;
+    ///
+    /// let mut sc = Scanner::scan_slice("123 456\r\n789 \n\n 中文 ");
+    ///
+    /// assert_eq!(true, sc.drop_next().unwrap());
+    /// assert_eq!(Some("456".into()), sc.next().unwrap());
+    /// assert_eq!(true, sc.drop_next().unwrap());
+    /// assert_eq!(Some("中文".into()), sc.next().unwrap());
+    /// assert_eq!(false, sc.drop_next().unwrap());
+    /// ```
+    #[allow(clippy::should_implement_trait)]
+    pub fn drop_next(&mut self) -> Result<bool, ScannerError> {
+        let result = self.skip_whitespaces()?;
+
+        if result {
+            let (temp, processing_length) = self.fetch_next_whitespace_but_drop()?;
+
+            match processing_length {
+                Some(processing_length) => {
+                    self.pull(processing_length);
+
+                    Ok(true)
+                }
+                None => {
+                    if temp == 0 {
+                        Ok(false)
+                    } else {
+                        Ok(true)
+                    }
+                }
+            }
+        } else {
+            Ok(false)
         }
     }
 
@@ -946,15 +1254,17 @@ impl<R: Read> Scanner<R> {
                     1 => {
                         let c = c.0[0];
 
-                        if c >= 48 && c <= 57 || c >= 65 && c <= 90 || c >= 97 && c <= 122 || c == 95 {
+                        if c >= 48 && c <= 57
+                            || c >= 65 && c <= 90
+                            || c >= 97 && c <= 122
+                            || c == 95
+                        {
                             0
                         } else {
                             c
                         }
                     }
-                    _ => {
-                        1
-                    }
+                    _ => 1,
                 }
             };
 
@@ -982,9 +1292,7 @@ impl<R: Read> Scanner<R> {
 
                     Ok(Some(unsafe { String::from_utf8_unchecked(v) }))
                 }
-                None => {
-                    Ok(None)
-                }
+                None => Ok(None),
             }
         } else {
             Ok(None)
@@ -1034,9 +1342,7 @@ impl<R: Read> Scanner<R> {
                             c
                         }
                     }
-                    _ => {
-                        1
-                    }
+                    _ => 1,
                 }
             };
 
@@ -1068,9 +1374,7 @@ impl<R: Read> Scanner<R> {
 
                     Ok(Some(unsafe { String::from_utf8_unchecked(v) }))
                 }
-                None => {
-                    Ok(None)
-                }
+                None => Ok(None),
             }
         } else {
             Ok(None)

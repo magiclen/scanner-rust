@@ -25,7 +25,9 @@ assert_eq!(Some("\tHello world!".into()), sc.next_line().unwrap());
 assert_eq!(None, sc.next_line().unwrap());
 ```
 
-See `examples`.
+Besides, the `drop_next` and `drop_next_line` methods are useful when you want to skip some substrings.
+
+Also, see `examples`.
 
 ## Crates.io
 
