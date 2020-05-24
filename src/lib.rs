@@ -1191,7 +1191,6 @@ impl<R: Read> Scanner<R> {
     /// assert_eq!(Some("中文".into()), sc.next().unwrap());
     /// assert_eq!(None, sc.drop_next().unwrap());
     /// ```
-    #[allow(clippy::should_implement_trait)]
     pub fn drop_next(&mut self) -> Result<Option<usize>, ScannerError> {
         let result = self.skip_whitespaces()?;
 
