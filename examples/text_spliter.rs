@@ -3,24 +3,25 @@
 
 Input an existing directory and a text file, and this tool can help you split that text file by empty lines into small text files named `%d.txt`.
 */
+
 extern crate scanner_rust;
 
 use std::fs;
 use std::io;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use scanner_rust::Scanner;
-use std::io::Write;
+use scanner_rust::{Scanner, ScannerError};
 
-fn main() -> Result<(), io::Error> {
+fn main() -> Result<(), ScannerError> {
     let mut sc = Scanner::new(io::stdin());
 
     let directory = loop {
         print!("Input an existing directory: ");
 
-        io::stdout().flush().unwrap();
+        io::stdout().flush()?;
 
-        let line = sc.next_line().unwrap();
+        let line = sc.next_line()?;
 
         match line {
             Some(line) => {
@@ -39,9 +40,9 @@ fn main() -> Result<(), io::Error> {
     let file_path = loop {
         print!("Input a text file: ");
 
-        io::stdout().flush().unwrap();
+        io::stdout().flush()?;
 
-        let line = sc.next_line().unwrap();
+        let line = sc.next_line()?;
 
         match line {
             Some(line) => {
@@ -59,13 +60,13 @@ fn main() -> Result<(), io::Error> {
 
     drop(sc);
 
-    let mut sc = Scanner::scan_path(file_path).unwrap();
+    let mut sc = Scanner::scan_path(file_path)?;
 
     let mut counter = 1;
     let mut s = String::new();
 
     loop {
-        let line = sc.next_line().unwrap();
+        let line = sc.next_line()?;
 
         match line {
             Some(line) => {
@@ -73,7 +74,7 @@ fn main() -> Result<(), io::Error> {
                     let file_name = format!("{}.txt", counter);
                     let file_path = Path::join(&directory, &file_name);
 
-                    fs::write(file_path, &s[..(s.len() - 1)]).unwrap();
+                    fs::write(file_path, &s[..(s.len() - 1)])?;
 
                     s.clear();
 
@@ -88,7 +89,7 @@ fn main() -> Result<(), io::Error> {
                     let file_name = format!("{}.txt", counter);
                     let file_path = Path::join(&directory, &file_name);
 
-                    fs::write(file_path, &s[..(s.len() - 1)]).unwrap();
+                    fs::write(file_path, &s[..(s.len() - 1)])?;
                 }
 
                 break;

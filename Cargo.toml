@@ -1,13 +1,13 @@
 [package]
 name = "scanner-rust"
-version = "1.4.1"
+version = "2.0.0"
 authors = ["Magic Len <len@magiclen.org>"]
 edition = "2018"
 repository = "https://github.com/magiclen/scanner-rust"
 homepage = "https://magiclen.org/scanner-rust"
 keywords = ["scanner", "java", "read", "stdin", "stream"]
 categories = ["parser-implementations"]
-description= "A simple text scanner which can parse primitive types and strings using UTF-8."
+description= "Simple text scanners which can parse primitive types and strings using UTF-8 or ASCII."
 readme = "README.md"
 license = "MIT"
 
@@ -15,10 +15,8 @@ license = "MIT"
 repository = "magiclen/scanner-rust"
 branch = "master"
 
-[dependencies]
-
 [dependencies.educe]
-version = ">=0.4.0"
+version = ">=0.4"
 features = ["Debug"]
 default-features = false
 

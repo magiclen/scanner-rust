@@ -1,14 +1,17 @@
 extern crate scanner_rust;
 
 use std::fmt::Write;
+use std::path::Path;
 
 use scanner_rust::Scanner;
 
-const INPUT_DATA_PATH: &str = r"tests/data/input_1.txt";
+const DATA_FOLDER: &str = "data";
+const INPUT_FILE_1: &str = "input_1.txt";
 
 #[test]
 fn counting_sort() {
-    let mut sc = Scanner::scan_path(INPUT_DATA_PATH).unwrap();
+    let mut sc =
+        Scanner::scan_path(Path::new("tests").join(DATA_FOLDER).join(INPUT_FILE_1)).unwrap();
 
     let n = sc.next_usize().unwrap().unwrap();
 
