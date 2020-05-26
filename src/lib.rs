@@ -74,7 +74,7 @@ assert_eq!(None, sc.next_line().unwrap());
 
 ### Scan a u8 slice
 
-`ScannerU8Slice` or `ScannerU8SliceAscii` can be used for reading raw data from a u8 slice.
+`ScannerU8Slice` or `ScannerU8SliceAscii` can be used for reading raw data from a `u8` slice.
 
 ```rust
 extern crate scanner_rust;

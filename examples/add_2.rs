@@ -21,7 +21,7 @@ fn main() {
             match sc.next_isize() {
                 Ok(i) => break i.unwrap_or(0),
                 Err(_) => {
-                    print!("Re-input a: ");
+                    print!("Re-input a and b: ");
                     io::stdout().flush().unwrap();
                 }
             }
