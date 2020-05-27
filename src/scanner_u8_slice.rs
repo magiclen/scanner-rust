@@ -340,6 +340,68 @@ impl<'a> ScannerU8Slice<'a> {
 }
 
 impl<'a> ScannerU8Slice<'a> {
+    /// Read the next bytes. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("123 456\r\n789 \n\n 中文 ".as_bytes());
+    ///
+    /// assert_eq!(Some("123".as_bytes()), sc.next_bytes(3).unwrap());
+    /// assert_eq!(Some(" 456".as_bytes()), sc.next_bytes(4).unwrap());
+    /// assert_eq!(Some("\r\n789 ".as_bytes()), sc.next_bytes(6).unwrap());
+    /// assert_eq!(Some("中文".as_bytes()), sc.next().unwrap());
+    /// assert_eq!(None, sc.next_bytes(1).unwrap());
+    /// ```
+    pub fn next_bytes(&mut self, number_of_bytes: usize) -> Result<Option<&[u8]>, ScannerError> {
+        if self.position == self.data_length {
+            return Ok(None);
+        }
+
+        let dropping_bytes = number_of_bytes.min(self.data_length - self.position);
+
+        let data = &self.data[self.position..(self.position + dropping_bytes)];
+
+        self.position += dropping_bytes;
+
+        Ok(Some(data))
+    }
+
+    /// Drop the next N bytes. If there is nothing to read, it will return `Ok(None)`. If there are something to read, it will return `Ok(Some(i))`. The `i` is the length of the actually dropped bytes.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("123 456\r\n789 \n\n 中文 ".as_bytes());
+    ///
+    /// assert_eq!(Some(7), sc.drop_next_bytes(7).unwrap());
+    /// assert_eq!(Some("".as_bytes()), sc.next_line().unwrap());
+    /// assert_eq!(Some("789 ".as_bytes()), sc.next_line().unwrap());
+    /// assert_eq!(Some(1), sc.drop_next_bytes(1).unwrap());
+    /// assert_eq!(Some(" 中文 ".as_bytes()), sc.next_line().unwrap());
+    /// assert_eq!(None, sc.drop_next_bytes(1).unwrap());
+    /// ```
+    pub fn drop_next_bytes(
+        &mut self,
+        number_of_bytes: usize,
+    ) -> Result<Option<usize>, ScannerError> {
+        if self.position == self.data_length {
+            return Ok(None);
+        }
+
+        let dropping_bytes = number_of_bytes.min(self.data_length - self.position);
+
+        self.position += dropping_bytes;
+
+        Ok(Some(dropping_bytes))
+    }
+}
+
+impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
