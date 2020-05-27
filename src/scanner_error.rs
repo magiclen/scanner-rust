@@ -1,6 +1,6 @@
 use std::error::Error;
 use std::fmt::{self, Display, Formatter};
-use std::io;
+use std::io::{self, ErrorKind};
 use std::num::{ParseFloatError, ParseIntError};
 
 #[derive(Debug)]
@@ -15,6 +15,13 @@ impl From<io::Error> for ScannerError {
     #[inline]
     fn from(err: io::Error) -> ScannerError {
         ScannerError::IOError(err)
+    }
+}
+
+impl From<ErrorKind> for ScannerError {
+    #[inline]
+    fn from(kind: ErrorKind) -> ScannerError {
+        ScannerError::IOError(kind.into())
     }
 }
 
