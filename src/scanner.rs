@@ -89,10 +89,10 @@ impl<R: Read> Scanner<R> {
         self.buf_length -= distance;
     }
 
-    /// Left shift (if necessary) the buffer to drop bytes from the start of the buffer. Typically, you should use this after `peek`ing the buffer.
+    /// Left shift (if necessary) the buffer to remove bytes from the start of the buffer. Typically, you should use this after `peek`ing the buffer.
     #[inline]
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn drop_bytes_from_the_start(&mut self, number_of_bytes: usize) {
+    pub unsafe fn remove_heading_bytes_from_buffer(&mut self, number_of_bytes: usize) {
         self.buf_left_shift(number_of_bytes);
     }
 }

@@ -87,10 +87,10 @@ impl<R: Read> ScannerAscii<R> {
         self.buf_length -= distance;
     }
 
-    /// Left shift (if necessary) the buffer to drop bytes from the start of the buffer. Typically, you should use this after `peek`ing the buffer.
+    /// Left shift (if necessary) the buffer to remove bytes from the start of the buffer. Typically, you should use this after `peek`ing the buffer.
     #[inline]
     #[allow(clippy::missing_safety_doc)]
-    pub unsafe fn drop_bytes_from_the_start(&mut self, number_of_bytes: usize) {
+    pub unsafe fn remove_heading_bytes_from_buffer(&mut self, number_of_bytes: usize) {
         self.buf_left_shift(number_of_bytes);
     }
 }
@@ -798,7 +798,7 @@ impl<R: Read> ScannerAscii<R> {
                                         &self.buf[self.buf_offset
                                             ..(self.buf_offset + p - boundary_length)],
                                     )
-                                    .as_ref(),
+                                        .as_ref(),
                                 );
                             }
                             Ordering::Less => {
@@ -824,7 +824,7 @@ impl<R: Read> ScannerAscii<R> {
                 String::from_utf8_lossy(
                     &self.buf[self.buf_offset..(self.buf_offset + self.buf_length)],
                 )
-                .as_ref(),
+                    .as_ref(),
             );
 
             self.buf_left_shift(self.buf_length);
@@ -1039,8 +1039,8 @@ impl<R: Read> ScannerAscii<R> {
 impl<R: Read> ScannerAscii<R> {
     #[inline]
     fn next_raw_parse<T: FromStr>(&mut self) -> Result<Option<T>, ScannerError>
-    where
-        ScannerError: From<<T as FromStr>::Err>, {
+        where
+            ScannerError: From<<T as FromStr>::Err>, {
         let result = self.next_raw()?;
 
         match result {
@@ -1294,8 +1294,8 @@ impl<R: Read> ScannerAscii<R> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<T>, ScannerError>
-    where
-        ScannerError: From<<T as FromStr>::Err>, {
+        where
+            ScannerError: From<<T as FromStr>::Err>, {
         let result = self.next_until_raw(boundary)?;
 
         match result {
