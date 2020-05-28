@@ -1053,7 +1053,10 @@ impl<R: Read> Scanner<R> {
     /// assert_eq!(Some("中文".into()), sc.next_raw().unwrap());
     /// assert_eq!(None, sc.next_bytes(1).unwrap());
     /// ```
-    pub fn next_bytes(&mut self, max_number_of_bytes: usize) -> Result<Option<Vec<u8>>, ScannerError> {
+    pub fn next_bytes(
+        &mut self,
+        max_number_of_bytes: usize,
+    ) -> Result<Option<Vec<u8>>, ScannerError> {
         if self.buf_length == 0 {
             let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
 
@@ -1080,9 +1083,7 @@ impl<R: Read> Scanner<R> {
 
             let dropping_bytes = self.buf_length.min(max_number_of_bytes - c);
 
-            temp.extend_from_slice(
-                &mut self.buf[self.buf_offset..(self.buf_offset + dropping_bytes)],
-            );
+            temp.extend_from_slice(&self.buf[self.buf_offset..(self.buf_offset + dropping_bytes)]);
 
             self.buf_left_shift(dropping_bytes);
 

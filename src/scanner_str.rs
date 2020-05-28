@@ -262,11 +262,11 @@ impl<'a> ScannerStr<'a> {
                         data[self.position + 1],
                         data[self.position + 2],
                     ) {
-                        let data = &self.text[self.position..p];
+                        let text = &self.text[self.position..p];
 
                         self.position = p + 3;
 
-                        return Ok(Some(data));
+                        return Ok(Some(text));
                     } else {
                         p += 3;
                     }
@@ -284,6 +284,113 @@ impl<'a> ScannerStr<'a> {
         let text = &self.text[self.position..p];
 
         self.position = p;
+
+        Ok(Some(text))
+    }
+}
+
+impl<'a> ScannerStr<'a> {
+    /// Read the next text (as a string slice) with a specific max number of characters. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("123 456\r\n789 \n\n 中文 ");
+    ///
+    /// assert_eq!(Some("123"), sc.next_str(3).unwrap());
+    /// assert_eq!(Some(" 456"), sc.next_str(4).unwrap());
+    /// assert_eq!(Some("\r\n789 "), sc.next_str(6).unwrap());
+    /// assert_eq!(Some("\n\n 中文"), sc.next_str(5).unwrap());
+    /// assert_eq!(Some(" "), sc.next_str(5).unwrap());
+    /// assert_eq!(None, sc.next_str(1).unwrap());
+    /// ```
+    pub fn next_str(
+        &mut self,
+        max_number_of_characters: usize,
+    ) -> Result<Option<&str>, ScannerError> {
+        if self.position == self.text_length {
+            return Ok(None);
+        }
+
+        let data = self.text.as_bytes();
+
+        let mut p = self.position;
+        let mut c = 0;
+
+        while c < max_number_of_characters {
+            let width = utf8_char_width(data[p]);
+
+            p += width;
+
+            c += 1;
+
+            if p == self.text_length {
+                break;
+            }
+        }
+
+        let text = &self.text[self.position..p];
+
+        self.position = p;
+
+        Ok(Some(text))
+    }
+}
+
+impl<'a> ScannerStr<'a> {
+    /// Read the next text until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("123 456\r\n789 \n\n 中文 ");
+    ///
+    /// assert_eq!(Some("123"), sc.next_until(" ").unwrap());
+    /// assert_eq!(Some("456\r"), sc.next_until("\n").unwrap());
+    /// assert_eq!(Some("78"), sc.next_until("9 ").unwrap());
+    /// assert_eq!(Some("\n\n 中文 "), sc.next_until("kk").unwrap());
+    /// assert_eq!(None, sc.next().unwrap());
+    /// ```
+    pub fn next_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<&'a str>, ScannerError> {
+        if self.position == self.text_length {
+            return Ok(None);
+        }
+
+        let boundary = boundary.as_ref().as_bytes();
+        let boundary_length = boundary.len();
+
+        if boundary_length == 0 || boundary_length >= self.text_length - self.position {
+            let text = &self.text[self.position..];
+
+            self.position = self.text_length;
+
+            return Ok(Some(text));
+        }
+
+        let data = self.text.as_bytes();
+
+        for i in self.position..(self.text_length - boundary_length) {
+            let e = i + boundary_length;
+
+            if &data[i..e] == boundary {
+                let text = &self.text[self.position..i];
+
+                self.position = e;
+
+                return Ok(Some(text));
+            }
+        }
+
+        let text = &self.text[self.position..];
+
+        self.position = self.text_length;
 
         Ok(Some(text))
     }
@@ -591,6 +698,358 @@ impl<'a> ScannerStr<'a> {
     #[inline]
     pub fn next_f64(&mut self) -> Result<Option<f64>, ScannerError> {
         let result = self.next()?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+}
+
+impl<'a> ScannerStr<'a> {
+    /// Read the next text until it reaches a specific boundary and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2");
+    ///
+    /// assert_eq!(Some(1), sc.next_u8_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u8_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u8_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<u8>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2");
+    ///
+    /// assert_eq!(Some(1), sc.next_u16_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u16_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u16_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<u16>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2");
+    ///
+    /// assert_eq!(Some(1), sc.next_u32_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u32_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u32_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<u32>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2");
+    ///
+    /// assert_eq!(Some(1), sc.next_u64_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u64_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u64_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<u64>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2");
+    ///
+    /// assert_eq!(Some(1), sc.next_u128_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u128_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u128_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<u128>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2");
+    ///
+    /// assert_eq!(Some(1), sc.next_usize_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_usize_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_usize_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<usize>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2");
+    ///
+    /// assert_eq!(Some(1), sc.next_i8_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i8_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i8_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<i8>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2");
+    ///
+    /// assert_eq!(Some(1), sc.next_i16_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i16_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i16_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<i16>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2");
+    ///
+    /// assert_eq!(Some(1), sc.next_i32_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i32_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i32_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<i32>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2");
+    ///
+    /// assert_eq!(Some(1), sc.next_i64_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i64_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i64_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<i64>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2");
+    ///
+    /// assert_eq!(Some(1), sc.next_i128_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i128_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i128_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<i128>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2");
+    ///
+    /// assert_eq!(Some(1), sc.next_isize_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_isize_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_isize_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<isize>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2.5");
+    ///
+    /// assert_eq!(Some(1.0), sc.next_f32_until(" ").unwrap());
+    /// assert_eq!(Some(2.5), sc.next_f32_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_f32_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<f32>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerStr;
+    ///
+    /// let mut sc = ScannerStr::new("1 2.5");
+    ///
+    /// assert_eq!(Some(1.0), sc.next_f64_until(" ").unwrap());
+    /// assert_eq!(Some(2.5), sc.next_f64_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_f64_until<S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<f64>, ScannerError> {
+        let result = self.next_until(boundary)?;
 
         match result {
             Some(s) => Ok(Some(s.parse()?)),

@@ -355,7 +355,10 @@ impl<'a> ScannerU8Slice<'a> {
     /// assert_eq!(Some("中文".as_bytes()), sc.next().unwrap());
     /// assert_eq!(None, sc.next_bytes(1).unwrap());
     /// ```
-    pub fn next_bytes(&mut self, max_number_of_bytes: usize) -> Result<Option<&[u8]>, ScannerError> {
+    pub fn next_bytes(
+        &mut self,
+        max_number_of_bytes: usize,
+    ) -> Result<Option<&'a [u8]>, ScannerError> {
         if self.position == self.data_length {
             return Ok(None);
         }
@@ -398,6 +401,61 @@ impl<'a> ScannerU8Slice<'a> {
         self.position += dropping_bytes;
 
         Ok(Some(dropping_bytes))
+    }
+}
+
+impl<'a> ScannerU8Slice<'a> {
+    /// Read the next data until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("123 456\r\n789 \n\n 中文 ".as_bytes());
+    ///
+    /// assert_eq!(Some("123".as_bytes()), sc.next_until(" ").unwrap());
+    /// assert_eq!(Some("456\r".as_bytes()), sc.next_until("\n").unwrap());
+    /// assert_eq!(Some("78".as_bytes()), sc.next_until("9 ").unwrap());
+    /// assert_eq!(Some("\n\n 中文 ".as_bytes()), sc.next_until("kk").unwrap());
+    /// assert_eq!(None, sc.next().unwrap());
+    /// ```
+    pub fn next_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<&'a [u8]>, ScannerError> {
+        if self.position == self.data_length {
+            return Ok(None);
+        }
+
+        let boundary = boundary.as_ref();
+        let boundary_length = boundary.len();
+
+        if boundary_length == 0 || boundary_length >= self.data_length - self.position {
+            let data = &self.data[self.position..];
+
+            self.position = self.data_length;
+
+            return Ok(Some(data));
+        }
+
+        for i in self.position..(self.data_length - boundary_length) {
+            let e = i + boundary_length;
+
+            if &self.data[i..e] == boundary {
+                let data = &self.data[self.position..i];
+
+                self.position = e;
+
+                return Ok(Some(data));
+            }
+        }
+
+        let data = &self.data[self.position..];
+
+        self.position = self.data_length;
+
+        Ok(Some(data))
     }
 }
 
@@ -703,6 +761,358 @@ impl<'a> ScannerU8Slice<'a> {
     #[inline]
     pub fn next_f64(&mut self) -> Result<Option<f64>, ScannerError> {
         let result = self.next()?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+}
+
+impl<'a> ScannerU8Slice<'a> {
+    /// Read the next text until it reaches a specific boundary and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_u8_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u8_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u8_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<u8>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_u16_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u16_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u16_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<u16>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_u32_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u32_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u32_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<u32>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_u64_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u64_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u64_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<u64>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_u128_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u128_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u128_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<u128>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_usize_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_usize_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_usize_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<usize>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_i8_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i8_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i8_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<i8>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_i16_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i16_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i16_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<i16>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_i32_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i32_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i32_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<i32>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_i64_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i64_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i64_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<i64>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_i128_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i128_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i128_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<i128>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_isize_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_isize_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_isize_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<isize>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2.5".as_bytes());
+    ///
+    /// assert_eq!(Some(1.0), sc.next_f32_until(" ").unwrap());
+    /// assert_eq!(Some(2.5), sc.next_f32_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_f32_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<f32>, ScannerError> {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerU8Slice;
+    ///
+    /// let mut sc = ScannerU8Slice::new("1 2.5".as_bytes());
+    ///
+    /// assert_eq!(Some(1.0), sc.next_f64_until(" ").unwrap());
+    /// assert_eq!(Some(2.5), sc.next_f64_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_f64_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<f64>, ScannerError> {
+        let result = self.next_until(boundary)?;
 
         match result {
             Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
