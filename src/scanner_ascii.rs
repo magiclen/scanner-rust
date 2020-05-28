@@ -641,7 +641,7 @@ impl<R: Read> ScannerAscii<R> {
     /// assert_eq!(Some("ab".into()), sc.next_raw().unwrap());
     /// assert_eq!(None, sc.next_bytes(1).unwrap());
     /// ```
-    pub fn next_bytes(&mut self, number_of_bytes: usize) -> Result<Option<Vec<u8>>, ScannerError> {
+    pub fn next_bytes(&mut self, max_number_of_bytes: usize) -> Result<Option<Vec<u8>>, ScannerError> {
         if self.buf_length == 0 {
             let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
 
@@ -655,7 +655,7 @@ impl<R: Read> ScannerAscii<R> {
         let mut temp = Vec::new();
         let mut c = 0;
 
-        while c < number_of_bytes {
+        while c < max_number_of_bytes {
             if self.buf_length == 0 {
                 let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
 
@@ -666,7 +666,7 @@ impl<R: Read> ScannerAscii<R> {
                 self.buf_length += size;
             }
 
-            let dropping_bytes = self.buf_length.min(number_of_bytes - c);
+            let dropping_bytes = self.buf_length.min(max_number_of_bytes - c);
 
             temp.extend_from_slice(
                 &mut self.buf[self.buf_offset..(self.buf_offset + dropping_bytes)],
@@ -698,7 +698,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     pub fn drop_next_bytes(
         &mut self,
-        number_of_bytes: usize,
+        max_number_of_bytes: usize,
     ) -> Result<Option<usize>, ScannerError> {
         if self.buf_length == 0 {
             let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
@@ -712,7 +712,7 @@ impl<R: Read> ScannerAscii<R> {
 
         let mut c = 0;
 
-        while c < number_of_bytes {
+        while c < max_number_of_bytes {
             if self.buf_length == 0 {
                 let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
 
@@ -723,7 +723,7 @@ impl<R: Read> ScannerAscii<R> {
                 self.buf_length += size;
             }
 
-            let dropping_bytes = self.buf_length.min(number_of_bytes - c);
+            let dropping_bytes = self.buf_length.min(max_number_of_bytes - c);
 
             self.buf_left_shift(dropping_bytes);
 

@@ -355,12 +355,12 @@ impl<'a> ScannerU8Slice<'a> {
     /// assert_eq!(Some("中文".as_bytes()), sc.next().unwrap());
     /// assert_eq!(None, sc.next_bytes(1).unwrap());
     /// ```
-    pub fn next_bytes(&mut self, number_of_bytes: usize) -> Result<Option<&[u8]>, ScannerError> {
+    pub fn next_bytes(&mut self, max_number_of_bytes: usize) -> Result<Option<&[u8]>, ScannerError> {
         if self.position == self.data_length {
             return Ok(None);
         }
 
-        let dropping_bytes = number_of_bytes.min(self.data_length - self.position);
+        let dropping_bytes = max_number_of_bytes.min(self.data_length - self.position);
 
         let data = &self.data[self.position..(self.position + dropping_bytes)];
 
@@ -387,13 +387,13 @@ impl<'a> ScannerU8Slice<'a> {
     /// ```
     pub fn drop_next_bytes(
         &mut self,
-        number_of_bytes: usize,
+        max_number_of_bytes: usize,
     ) -> Result<Option<usize>, ScannerError> {
         if self.position == self.data_length {
             return Ok(None);
         }
 
-        let dropping_bytes = number_of_bytes.min(self.data_length - self.position);
+        let dropping_bytes = max_number_of_bytes.min(self.data_length - self.position);
 
         self.position += dropping_bytes;
 
