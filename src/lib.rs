@@ -117,4 +117,4 @@ pub use scanner_str::*;
 pub use scanner_u8_slice::*;
 pub use scanner_u8_slice_ascii::*;
 
-const BUFFER_SIZE: usize = 256; // must be bigger than or equal to 4
+pub const BUFFER_SIZE: usize = 256; // must be bigger than or equal to 32

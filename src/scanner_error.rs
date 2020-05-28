@@ -4,7 +4,7 @@ use std::io::{self, ErrorKind};
 use std::num::{ParseFloatError, ParseIntError};
 
 #[derive(Debug)]
-/// The possible errors of `Scanner`, `ScannerStr`, `ScannerU8Slice` structs.
+/// The possible errors of `Scanner`, `ScannerAscii`, `ScannerStr`, `ScannerU8Slice`, `ScannerU8SliceAscii` structs.
 pub enum ScannerError {
     IOError(io::Error),
     ParseIntError(ParseIntError),

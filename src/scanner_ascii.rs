@@ -5,7 +5,7 @@ use std::fs::File;
 use std::intrinsics::copy;
 use std::io::Read;
 use std::path::Path;
-use std::str::from_utf8_unchecked;
+use std::str::{from_utf8_unchecked, FromStr};
 
 use crate::whitespaces::*;
 use crate::ScannerError;
@@ -65,24 +65,33 @@ impl ScannerAscii<File> {
 }
 
 impl<R: Read> ScannerAscii<R> {
+    #[inline]
+    fn buf_align_to_frond_end(&mut self) {
+        unsafe {
+            copy(self.buf.as_ptr().add(self.buf_offset), self.buf.as_mut_ptr(), self.buf_length);
+        }
+
+        self.buf_offset = 0;
+    }
+
+    #[inline]
     fn buf_left_shift(&mut self, distance: usize) {
         debug_assert!(self.buf_length >= distance);
 
         self.buf_offset += distance;
 
-        if BUFFER_SIZE - self.buf_offset < 32 {
-            unsafe {
-                copy(
-                    self.buf.as_ptr().add(self.buf_offset),
-                    self.buf.as_mut_ptr(),
-                    self.buf_length,
-                );
-            }
-
-            self.buf_offset = 0;
+        if BUFFER_SIZE - self.buf_offset <= 32 {
+            self.buf_align_to_frond_end();
         }
 
         self.buf_length -= distance;
+    }
+
+    /// Left shift (if necessary) the buffer to drop bytes from the start of the buffer. Typically, you should use this after `peek`ing the buffer.
+    #[inline]
+    #[allow(clippy::missing_safety_doc)]
+    pub unsafe fn drop_bytes_from_the_start(&mut self, number_of_bytes: usize) {
+        self.buf_left_shift(number_of_bytes);
     }
 }
 
@@ -995,6 +1004,51 @@ impl<R: Read> ScannerAscii<R> {
 }
 
 impl<R: Read> ScannerAscii<R> {
+    /// Try to fill up the buffer and return the immutable byte slice of the valid buffered data.
+    /// If the `shift` parameter is set to `false`, the guaranteed minimum data length of the result is **32** (if the unread data is long enough), otherwise it is `BUFFER_SIZE`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("123 456\r\n789 \n\n ab ".as_bytes());
+    ///
+    /// assert_eq!("123 456\r\n789 \n\n ab ".as_bytes(), sc.peek(false).unwrap());
+    /// ```
+    #[inline]
+    pub fn peek(&mut self, shift: bool) -> Result<&[u8], ScannerError> {
+        if shift {
+            self.buf_align_to_frond_end();
+        }
+
+        loop {
+            let size = self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])?;
+
+            if size == 0 {
+                break;
+            }
+
+            self.buf_length += size;
+        }
+
+        Ok(&self.buf[self.buf_offset..(self.buf_offset + self.buf_length)])
+    }
+}
+
+impl<R: Read> ScannerAscii<R> {
+    #[inline]
+    fn next_raw_parse<T: FromStr>(&mut self) -> Result<Option<T>, ScannerError>
+    where
+        ScannerError: From<<T as FromStr>::Err>, {
+        let result = self.next_raw()?;
+
+        match result {
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
     /// Read the next token separated by whitespaces and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
@@ -1009,12 +1063,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_u8(&mut self) -> Result<Option<u8>, ScannerError> {
-        let result = self.next_raw()?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1031,12 +1080,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_u16(&mut self) -> Result<Option<u16>, ScannerError> {
-        let result = self.next_raw()?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1053,12 +1097,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_u32(&mut self) -> Result<Option<u32>, ScannerError> {
-        let result = self.next_raw()?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1075,12 +1114,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_u64(&mut self) -> Result<Option<u64>, ScannerError> {
-        let result = self.next_raw()?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1097,12 +1131,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_u128(&mut self) -> Result<Option<u128>, ScannerError> {
-        let result = self.next_raw()?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1119,12 +1148,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_usize(&mut self) -> Result<Option<usize>, ScannerError> {
-        let result = self.next_raw()?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1141,12 +1165,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_i8(&mut self) -> Result<Option<i8>, ScannerError> {
-        let result = self.next_raw()?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1163,12 +1182,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_i16(&mut self) -> Result<Option<i16>, ScannerError> {
-        let result = self.next_raw()?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1185,12 +1199,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_i32(&mut self) -> Result<Option<i32>, ScannerError> {
-        let result = self.next_raw()?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1207,12 +1216,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_i64(&mut self) -> Result<Option<i64>, ScannerError> {
-        let result = self.next_raw()?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1229,12 +1233,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_i128(&mut self) -> Result<Option<i128>, ScannerError> {
-        let result = self.next_raw()?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1251,12 +1250,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_isize(&mut self) -> Result<Option<isize>, ScannerError> {
-        let result = self.next_raw()?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1273,12 +1267,7 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_f32(&mut self) -> Result<Option<f32>, ScannerError> {
-        let result = self.next_raw()?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1295,12 +1284,304 @@ impl<R: Read> ScannerAscii<R> {
     /// ```
     #[inline]
     pub fn next_f64(&mut self) -> Result<Option<f64>, ScannerError> {
-        let result = self.next_raw()?;
+        self.next_raw_parse()
+    }
+}
+
+impl<R: Read> ScannerAscii<R> {
+    #[inline]
+    fn next_until_raw_parse<T: FromStr, D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<T>, ScannerError>
+    where
+        ScannerError: From<<T as FromStr>::Err>, {
+        let result = self.next_until_raw(boundary)?;
 
         match result {
             Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
             None => Ok(None),
         }
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_u8_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u8_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u8_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<u8>, ScannerError> {
+        self.next_until_raw_parse(boundary)
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_u16_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u16_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u16_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<u16>, ScannerError> {
+        self.next_until_raw_parse(boundary)
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_u32_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u32_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u32_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<u32>, ScannerError> {
+        self.next_until_raw_parse(boundary)
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_u64_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u64_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u64_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<u64>, ScannerError> {
+        self.next_until_raw_parse(boundary)
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_u128_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_u128_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_u128_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<u128>, ScannerError> {
+        self.next_until_raw_parse(boundary)
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_usize_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_usize_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_usize_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<usize>, ScannerError> {
+        self.next_until_raw_parse(boundary)
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_usize_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_usize_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i8_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<i8>, ScannerError> {
+        self.next_until_raw_parse(boundary)
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_i16_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i16_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i16_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<i16>, ScannerError> {
+        self.next_until_raw_parse(boundary)
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_i32_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i32_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i32_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<i32>, ScannerError> {
+        self.next_until_raw_parse(boundary)
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_i64_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i64_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i64_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<i64>, ScannerError> {
+        self.next_until_raw_parse(boundary)
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_i128_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i128_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_i128_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<i128>, ScannerError> {
+        self.next_until_raw_parse(boundary)
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2".as_bytes());
+    ///
+    /// assert_eq!(Some(1), sc.next_isize_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_isize_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_isize_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<isize>, ScannerError> {
+        self.next_until_raw_parse(boundary)
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2.5".as_bytes());
+    ///
+    /// assert_eq!(Some(1.0), sc.next_f32_until(" ").unwrap());
+    /// assert_eq!(Some(2.5), sc.next_f32_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_f32_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<f32>, ScannerError> {
+        self.next_until_raw_parse(boundary)
+    }
+
+    /// Read the next text until it reaches a specific boundary and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// ```rust
+    /// extern crate scanner_rust;
+    ///
+    /// use scanner_rust::ScannerAscii;
+    ///
+    /// let mut sc = ScannerAscii::new("1 2.5".as_bytes());
+    ///
+    /// assert_eq!(Some(1.0), sc.next_f64_until(" ").unwrap());
+    /// assert_eq!(Some(2.5), sc.next_f64_until(" ").unwrap());
+    /// ```
+    #[inline]
+    pub fn next_f64_until<D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<f64>, ScannerError> {
+        self.next_until_raw_parse(boundary)
     }
 }
 

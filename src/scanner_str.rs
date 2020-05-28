@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::utf8::*;
 use crate::whitespaces::*;
 use crate::ScannerError;
@@ -397,6 +399,18 @@ impl<'a> ScannerStr<'a> {
 }
 
 impl<'a> ScannerStr<'a> {
+    #[inline]
+    fn next_parse<T: FromStr>(&mut self) -> Result<Option<T>, ScannerError>
+    where
+        ScannerError: From<<T as FromStr>::Err>, {
+        let result = self.next()?;
+
+        match result {
+            Some(s) => Ok(Some(s.parse()?)),
+            None => Ok(None),
+        }
+    }
+
     /// Read the next token separated by whitespaces and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
@@ -411,12 +425,7 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_u8(&mut self) -> Result<Option<u8>, ScannerError> {
-        let result = self.next()?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
@@ -433,12 +442,7 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_u16(&mut self) -> Result<Option<u16>, ScannerError> {
-        let result = self.next()?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
@@ -455,12 +459,7 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_u32(&mut self) -> Result<Option<u32>, ScannerError> {
-        let result = self.next()?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
@@ -477,12 +476,7 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_u64(&mut self) -> Result<Option<u64>, ScannerError> {
-        let result = self.next()?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
@@ -499,12 +493,7 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_u128(&mut self) -> Result<Option<u128>, ScannerError> {
-        let result = self.next()?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
@@ -521,12 +510,7 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_usize(&mut self) -> Result<Option<usize>, ScannerError> {
-        let result = self.next()?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
@@ -543,12 +527,7 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_i8(&mut self) -> Result<Option<i8>, ScannerError> {
-        let result = self.next()?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
@@ -565,12 +544,7 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_i16(&mut self) -> Result<Option<i16>, ScannerError> {
-        let result = self.next()?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
@@ -587,12 +561,7 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_i32(&mut self) -> Result<Option<i32>, ScannerError> {
-        let result = self.next()?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
@@ -609,12 +578,7 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_i64(&mut self) -> Result<Option<i64>, ScannerError> {
-        let result = self.next()?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
@@ -631,12 +595,7 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_i128(&mut self) -> Result<Option<i128>, ScannerError> {
-        let result = self.next()?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
@@ -653,12 +612,7 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_isize(&mut self) -> Result<Option<isize>, ScannerError> {
-        let result = self.next()?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
@@ -675,12 +629,7 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_f32(&mut self) -> Result<Option<f32>, ScannerError> {
-        let result = self.next()?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_parse()
     }
 
     /// Read the next token separated by whitespaces and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
@@ -697,16 +646,26 @@ impl<'a> ScannerStr<'a> {
     /// ```
     #[inline]
     pub fn next_f64(&mut self) -> Result<Option<f64>, ScannerError> {
-        let result = self.next()?;
+        self.next_parse()
+    }
+}
+
+impl<'a> ScannerStr<'a> {
+    #[inline]
+    fn next_raw_parse<T: FromStr, S: AsRef<str>>(
+        &mut self,
+        boundary: S,
+    ) -> Result<Option<T>, ScannerError>
+    where
+        ScannerError: From<<T as FromStr>::Err>, {
+        let result = self.next_until(boundary)?;
 
         match result {
             Some(s) => Ok(Some(s.parse()?)),
             None => Ok(None),
         }
     }
-}
 
-impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
@@ -724,12 +683,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<u8>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
@@ -749,12 +703,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<u16>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
@@ -774,12 +723,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<u32>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
@@ -799,12 +743,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<u64>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
@@ -824,12 +763,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<u128>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
@@ -849,12 +783,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<usize>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
@@ -874,12 +803,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<i8>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
@@ -899,12 +823,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<i16>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
@@ -924,12 +843,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<i32>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
@@ -949,12 +863,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<i64>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
@@ -974,12 +883,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<i128>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
@@ -999,12 +903,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<isize>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1024,12 +923,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<f32>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
@@ -1049,12 +943,7 @@ impl<'a> ScannerStr<'a> {
         &mut self,
         boundary: S,
     ) -> Result<Option<f64>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(s.parse()?)),
-            None => Ok(None),
-        }
+        self.next_raw_parse(boundary)
     }
 }
 
