@@ -222,6 +222,7 @@ fn next() {
     assert_eq!(Some("456".as_bytes()), sc.next().unwrap());
     assert_eq!(Some("789".as_bytes()), sc.next().unwrap());
     assert_eq!(Some("中文好難".as_bytes()), sc.next().unwrap());
+    assert_eq!(Some("".as_bytes()), sc.next_line().unwrap());
     assert_eq!(None, sc.next().unwrap());
     assert_eq!(None, sc.next().unwrap());
 }

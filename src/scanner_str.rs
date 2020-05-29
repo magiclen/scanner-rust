@@ -251,7 +251,7 @@ impl<'a> ScannerStr<'a> {
                     if is_whitespace_1(e) {
                         let text = &self.text[self.position..p];
 
-                        self.position = p + 1;
+                        self.position = p;
 
                         return Ok(Some(text));
                     }
@@ -266,7 +266,7 @@ impl<'a> ScannerStr<'a> {
                     ) {
                         let text = &self.text[self.position..p];
 
-                        self.position = p + 3;
+                        self.position = p;
 
                         return Ok(Some(text));
                     } else {
@@ -304,9 +304,10 @@ impl<'a> ScannerStr<'a> {
     /// assert_eq!(Some("123"), sc.next_str(3).unwrap());
     /// assert_eq!(Some(" 456"), sc.next_str(4).unwrap());
     /// assert_eq!(Some("\r\n789 "), sc.next_str(6).unwrap());
-    /// assert_eq!(Some("\n\n 中文"), sc.next_str(5).unwrap());
-    /// assert_eq!(Some(" "), sc.next_str(5).unwrap());
-    /// assert_eq!(None, sc.next_str(1).unwrap());
+    /// assert_eq!(Some("\n\n 中"), sc.next_str(4).unwrap());
+    /// assert_eq!(Some("文"), sc.next().unwrap());
+    /// assert_eq!(Some(" "), sc.next_str(2).unwrap());
+    /// assert_eq!(None, sc.next_str(2).unwrap());
     /// ```
     pub fn next_str(
         &mut self,

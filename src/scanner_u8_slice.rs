@@ -285,7 +285,7 @@ impl<'a> ScannerU8Slice<'a> {
                     if is_whitespace_1(e) {
                         let data = &self.data[self.position..p];
 
-                        self.position = p + 1;
+                        self.position = p;
 
                         return Ok(Some(data));
                     }
@@ -306,7 +306,7 @@ impl<'a> ScannerU8Slice<'a> {
                     ) {
                         let data = &self.data[self.position..p];
 
-                        self.position = p + 3;
+                        self.position = p;
 
                         return Ok(Some(data));
                     } else {
@@ -353,7 +353,8 @@ impl<'a> ScannerU8Slice<'a> {
     /// assert_eq!(Some(" 456".as_bytes()), sc.next_bytes(4).unwrap());
     /// assert_eq!(Some("\r\n789 ".as_bytes()), sc.next_bytes(6).unwrap());
     /// assert_eq!(Some("中文".as_bytes()), sc.next().unwrap());
-    /// assert_eq!(None, sc.next_bytes(1).unwrap());
+    /// assert_eq!(Some(" ".as_bytes()), sc.next_bytes(2).unwrap());
+    /// assert_eq!(None, sc.next_bytes(2).unwrap());
     /// ```
     pub fn next_bytes(
         &mut self,

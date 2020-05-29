@@ -203,6 +203,7 @@ fn next() {
     assert_eq!(Some("456".into()), sc.next().unwrap());
     assert_eq!(Some("789".into()), sc.next().unwrap());
     assert_eq!(Some("abcd".into()), sc.next().unwrap());
+    assert_eq!(Some("".into()), sc.next_line().unwrap());
     assert_eq!(None, sc.next().unwrap());
     assert_eq!(None, sc.next().unwrap());
 }

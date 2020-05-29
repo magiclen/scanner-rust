@@ -700,8 +700,6 @@ impl<R: Read> Scanner<R> {
                 }
                 1 => {
                     if is_whitespace_1(e) {
-                        self.buf_left_shift(1);
-
                         return Ok(Some(temp));
                     }
 
@@ -737,8 +735,6 @@ impl<R: Read> Scanner<R> {
                         self.buf[self.buf_offset + 1],
                         self.buf[self.buf_offset + 2],
                     ) {
-                        self.buf_left_shift(3);
-
                         return Ok(Some(temp));
                     } else {
                         let char_str_bytes = &self.buf[self.buf_offset..(self.buf_offset + width)];
@@ -854,8 +850,6 @@ impl<R: Read> Scanner<R> {
                 }
                 1 => {
                     if is_whitespace_1(e) {
-                        self.buf_left_shift(1);
-
                         return Ok(Some(temp));
                     }
 
@@ -883,8 +877,6 @@ impl<R: Read> Scanner<R> {
                         self.buf[self.buf_offset + 1],
                         self.buf[self.buf_offset + 2],
                     ) {
-                        self.buf_left_shift(3);
-
                         return Ok(Some(temp));
                     } else {
                         let char_str_bytes = &self.buf[self.buf_offset..(self.buf_offset + width)];
@@ -978,8 +970,6 @@ impl<R: Read> Scanner<R> {
                 }
                 1 => {
                     if is_whitespace_1(e) {
-                        self.buf_left_shift(1);
-
                         return Ok(Some(c));
                     }
 
@@ -1008,8 +998,6 @@ impl<R: Read> Scanner<R> {
                         self.buf[self.buf_offset + 1],
                         self.buf[self.buf_offset + 2],
                     ) {
-                        self.buf_left_shift(3);
-
                         return Ok(Some(c));
                     } else {
                         self.buf_left_shift(width);
@@ -1062,7 +1050,8 @@ impl<R: Read> Scanner<R> {
     /// assert_eq!(Some(" 456".into()), sc.next_bytes(4).unwrap());
     /// assert_eq!(Some("\r\n789 ".into()), sc.next_bytes(6).unwrap());
     /// assert_eq!(Some("中文".into()), sc.next_raw().unwrap());
-    /// assert_eq!(None, sc.next_bytes(1).unwrap());
+    /// assert_eq!(Some(" ".into()), sc.next_bytes(2).unwrap());
+    /// assert_eq!(None, sc.next_bytes(2).unwrap());
     /// ```
     pub fn next_bytes(
         &mut self,

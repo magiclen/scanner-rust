@@ -497,8 +497,6 @@ impl<R: Read> ScannerAscii<R> {
             let e = self.buf[self.buf_offset];
 
             if is_whitespace_1(e) {
-                self.buf_left_shift(1);
-
                 return Ok(Some(temp));
             }
 
@@ -558,8 +556,6 @@ impl<R: Read> ScannerAscii<R> {
             let e = self.buf[self.buf_offset];
 
             if is_whitespace_1(e) {
-                self.buf_left_shift(1);
-
                 return Ok(Some(temp));
             }
 
@@ -613,8 +609,6 @@ impl<R: Read> ScannerAscii<R> {
 
         loop {
             if is_whitespace_1(self.buf[self.buf_offset]) {
-                self.buf_left_shift(1);
-
                 return Ok(Some(c));
             }
 
@@ -649,7 +643,8 @@ impl<R: Read> ScannerAscii<R> {
     /// assert_eq!(Some(" 456".into()), sc.next_bytes(4).unwrap());
     /// assert_eq!(Some("\r\n789 ".into()), sc.next_bytes(6).unwrap());
     /// assert_eq!(Some("ab".into()), sc.next_raw().unwrap());
-    /// assert_eq!(None, sc.next_bytes(1).unwrap());
+    /// assert_eq!(Some(" ".into()), sc.next_bytes(2).unwrap());
+    /// assert_eq!(None, sc.next_bytes(2).unwrap());
     /// ```
     pub fn next_bytes(
         &mut self,
@@ -798,7 +793,7 @@ impl<R: Read> ScannerAscii<R> {
                                         &self.buf[self.buf_offset
                                             ..(self.buf_offset + p - boundary_length)],
                                     )
-                                        .as_ref(),
+                                    .as_ref(),
                                 );
                             }
                             Ordering::Less => {
@@ -824,7 +819,7 @@ impl<R: Read> ScannerAscii<R> {
                 String::from_utf8_lossy(
                     &self.buf[self.buf_offset..(self.buf_offset + self.buf_length)],
                 )
-                    .as_ref(),
+                .as_ref(),
             );
 
             self.buf_left_shift(self.buf_length);
@@ -1039,8 +1034,8 @@ impl<R: Read> ScannerAscii<R> {
 impl<R: Read> ScannerAscii<R> {
     #[inline]
     fn next_raw_parse<T: FromStr>(&mut self) -> Result<Option<T>, ScannerError>
-        where
-            ScannerError: From<<T as FromStr>::Err>, {
+    where
+        ScannerError: From<<T as FromStr>::Err>, {
         let result = self.next_raw()?;
 
         match result {
@@ -1294,8 +1289,8 @@ impl<R: Read> ScannerAscii<R> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<T>, ScannerError>
-        where
-            ScannerError: From<<T as FromStr>::Err>, {
+    where
+        ScannerError: From<<T as FromStr>::Err>, {
         let result = self.next_until_raw(boundary)?;
 
         match result {
