@@ -50,6 +50,19 @@ println!("{} + {} = {}", a, b, a + b);
 
 Besides, the `drop_next` and `drop_next_line` methods are useful when you want to skip some data.
 
+The default buffer size is 256 bytes. If you want to change that, you can use the `new2` associated function or the `scan_path2` associated function and define a length explicitly to create an instance of the above structs.
+
+For example, to change the buffer size to 64 bytes,
+
+```rust
+extern crate scanner_rust;
+
+use scanner_rust::generic_array::typenum::U64;
+use scanner_rust::Scanner;
+
+let mut sc: Scanner<_, U64> = Scanner::scan_path2("Cargo.toml").unwrap();
+```
+
 ### Scan a string slice (`&str`)
 
 `ScannerStr` can be used for reading strings from a string slice.
