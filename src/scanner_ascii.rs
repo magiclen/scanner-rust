@@ -21,6 +21,7 @@ pub struct ScannerAscii<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Outpu
     buf: GenericArray<u8, N>,
     buf_length: usize,
     buf_offset: usize,
+    passing_byte: Option<u8>,
 }
 
 impl<R: Read> ScannerAscii<R> {
@@ -61,6 +62,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
             buf: GenericArray::default(),
             buf_length: 0,
             buf_offset: 0,
+            passing_byte: None,
         }
     }
 }
@@ -129,6 +131,44 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
     pub unsafe fn remove_heading_bytes_from_buffer(&mut self, number_of_bytes: usize) {
         self.buf_left_shift(number_of_bytes);
     }
+
+    fn passing_read(&mut self) -> Result<bool, ScannerError> {
+        if self.buf_length == 0 {
+            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+
+            if size == 0 {
+                return Ok(false);
+            }
+
+            self.buf_length += size;
+
+            if let Some(passing_byte) = self.passing_byte {
+                self.passing_byte = None;
+
+                if self.buf[self.buf_offset] == passing_byte {
+                    self.buf_left_shift(1);
+
+                    return if size == 1 {
+                        let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+
+                        if size == 0 {
+                            Ok(false)
+                        } else {
+                            self.buf_length += size;
+
+                            Ok(true)
+                        }
+                    } else {
+                        Ok(true)
+                    };
+                }
+            }
+
+            Ok(true)
+        } else {
+            Ok(true)
+        }
+    }
 }
 
 impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerAscii<R, N> {
@@ -150,14 +190,8 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
     /// assert_eq!(None, sc.next_char().unwrap());
     /// ```
     pub fn next_char(&mut self) -> Result<Option<char>, ScannerError> {
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
+        if !self.passing_read()? {
+            return Ok(None);
         }
 
         let e = self.buf[self.buf_offset];
@@ -186,14 +220,8 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
     /// assert_eq!(Some(" ab ".into()), sc.next_line().unwrap());
     /// ```
     pub fn next_line(&mut self) -> Result<Option<String>, ScannerError> {
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
+        if !self.passing_read()? {
+            return Ok(None);
         }
 
         let mut temp = String::new();
@@ -201,21 +229,13 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
         loop {
             let e = self.buf[self.buf_offset];
 
+            println!("{}", e);
+
             if e == b'\n' {
                 if self.buf_length == 1 {
-                    let size =
-                        self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])?;
-
-                    if size == 0 {
-                        self.buf_left_shift(1);
-
-                        return Ok(Some(temp));
-                    }
-
-                    self.buf_length += size;
-                }
-
-                if self.buf[self.buf_offset + 1] == b'\r' {
+                    self.passing_byte = Some(b'\r');
+                    self.buf_left_shift(1);
+                } else if self.buf[self.buf_offset + 1] == b'\r' {
                     self.buf_left_shift(2);
                 } else {
                     self.buf_left_shift(1);
@@ -224,19 +244,9 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
                 return Ok(Some(temp));
             } else if e == b'\r' {
                 if self.buf_length == 1 {
-                    let size =
-                        self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])?;
-
-                    if size == 0 {
-                        self.buf_left_shift(1);
-
-                        return Ok(Some(temp));
-                    }
-
-                    self.buf_length += size;
-                }
-
-                if self.buf[self.buf_offset + 1] == b'\n' {
+                    self.passing_byte = Some(b'\n');
+                    self.buf_left_shift(1);
+                } else if self.buf[self.buf_offset + 1] == b'\n' {
                     self.buf_left_shift(2);
                 } else {
                     self.buf_left_shift(1);
@@ -280,14 +290,8 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
     /// assert_eq!(Some(" ab ".into()), sc.next_line_raw().unwrap());
     /// ```
     pub fn next_line_raw(&mut self) -> Result<Option<Vec<u8>>, ScannerError> {
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
+        if !self.passing_read()? {
+            return Ok(None);
         }
 
         let mut temp = Vec::new();
@@ -297,19 +301,9 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
 
             if e == b'\n' {
                 if self.buf_length == 1 {
-                    let size =
-                        self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])?;
-
-                    if size == 0 {
-                        self.buf_left_shift(1);
-
-                        return Ok(Some(temp));
-                    }
-
-                    self.buf_length += size;
-                }
-
-                if self.buf[self.buf_offset + 1] == b'\r' {
+                    self.passing_byte = Some(b'\r');
+                    self.buf_left_shift(1);
+                } else if self.buf[self.buf_offset + 1] == b'\r' {
                     self.buf_left_shift(2);
                 } else {
                     self.buf_left_shift(1);
@@ -318,19 +312,9 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
                 return Ok(Some(temp));
             } else if e == b'\r' {
                 if self.buf_length == 1 {
-                    let size =
-                        self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])?;
-
-                    if size == 0 {
-                        self.buf_left_shift(1);
-
-                        return Ok(Some(temp));
-                    }
-
-                    self.buf_length += size;
-                }
-
-                if self.buf[self.buf_offset + 1] == b'\n' {
+                    self.passing_byte = Some(b'\n');
+                    self.buf_left_shift(1);
+                } else if self.buf[self.buf_offset + 1] == b'\n' {
                     self.buf_left_shift(2);
                 } else {
                     self.buf_left_shift(1);
@@ -371,14 +355,8 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
     /// assert_eq!(None, sc.drop_next_line().unwrap());
     /// ```
     pub fn drop_next_line(&mut self) -> Result<Option<usize>, ScannerError> {
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
+        if !self.passing_read()? {
+            return Ok(None);
         }
 
         let mut c = 0;
@@ -388,19 +366,9 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
 
             if e == b'\n' {
                 if self.buf_length == 1 {
-                    let size =
-                        self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])?;
-
-                    if size == 0 {
-                        self.buf_left_shift(1);
-
-                        return Ok(Some(c));
-                    }
-
-                    self.buf_length += size;
-                }
-
-                if self.buf[self.buf_offset + 1] == b'\r' {
+                    self.passing_byte = Some(b'\r');
+                    self.buf_left_shift(1);
+                } else if self.buf[self.buf_offset + 1] == b'\r' {
                     self.buf_left_shift(2);
                 } else {
                     self.buf_left_shift(1);
@@ -409,19 +377,9 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
                 return Ok(Some(c));
             } else if e == b'\r' {
                 if self.buf_length == 1 {
-                    let size =
-                        self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])?;
-
-                    if size == 0 {
-                        self.buf_left_shift(1);
-
-                        return Ok(Some(c));
-                    }
-
-                    self.buf_length += size;
-                }
-
-                if self.buf[self.buf_offset + 1] == b'\n' {
+                    self.passing_byte = Some(b'\n');
+                    self.buf_left_shift(1);
+                } else if self.buf[self.buf_offset + 1] == b'\n' {
                     self.buf_left_shift(2);
                 } else {
                     self.buf_left_shift(1);
@@ -465,14 +423,8 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
     /// assert_eq!(false, sc.skip_whitespaces().unwrap());
     /// ```
     pub fn skip_whitespaces(&mut self) -> Result<bool, ScannerError> {
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(false);
-            }
-
-            self.buf_length += size;
+        if !self.passing_read()? {
+            return Ok(false);
         }
 
         loop {
@@ -686,14 +638,8 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
         &mut self,
         max_number_of_bytes: usize,
     ) -> Result<Option<Vec<u8>>, ScannerError> {
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
+        if !self.passing_read()? {
+            return Ok(None);
         }
 
         let mut temp = Vec::new();
@@ -742,14 +688,8 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
         &mut self,
         max_number_of_bytes: usize,
     ) -> Result<Option<usize>, ScannerError> {
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
+        if !self.passing_read()? {
+            return Ok(None);
         }
 
         let mut c = 0;
@@ -796,14 +736,8 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
         &mut self,
         boundary: S,
     ) -> Result<Option<String>, ScannerError> {
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
+        if !self.passing_read()? {
+            return Ok(None);
         }
 
         let boundary = boundary.as_ref().as_bytes();
@@ -889,14 +823,8 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
         &mut self,
         boundary: &D,
     ) -> Result<Option<Vec<u8>>, ScannerError> {
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
+        if !self.passing_read()? {
+            return Ok(None);
         }
 
         let boundary = boundary.as_ref();
@@ -974,14 +902,8 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
         &mut self,
         boundary: &D,
     ) -> Result<Option<usize>, ScannerError> {
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
+        if !self.passing_read()? {
+            return Ok(None);
         }
 
         let boundary = boundary.as_ref();
