@@ -142,9 +142,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
 
             self.buf_length += size;
 
-            if let Some(passing_byte) = self.passing_byte {
-                self.passing_byte = None;
-
+            if let Some(passing_byte) = self.passing_byte.take() {
                 if self.buf[self.buf_offset] == passing_byte {
                     self.buf_left_shift(1);
 
