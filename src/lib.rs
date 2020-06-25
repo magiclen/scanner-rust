@@ -112,6 +112,7 @@ assert_eq!(None, sc.next_line().unwrap());
 */
 
 pub extern crate generic_array;
+extern crate utf8_width;
 
 #[macro_use]
 extern crate educe;
@@ -122,7 +123,6 @@ mod scanner_error;
 mod scanner_str;
 mod scanner_u8_slice;
 mod scanner_u8_slice_ascii;
-mod utf8;
 mod whitespaces;
 
 pub use scanner::*;

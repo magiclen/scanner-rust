@@ -1,7 +1,7 @@
 use std::char::REPLACEMENT_CHARACTER;
 use std::str::{from_utf8, from_utf8_unchecked, FromStr};
 
-use crate::utf8::*;
+use crate::utf8_width::*;
 use crate::whitespaces::*;
 use crate::ScannerError;
 
@@ -62,7 +62,7 @@ impl<'a> ScannerU8Slice<'a> {
 
         let e = self.data[self.position];
 
-        let width = utf8_char_width(e);
+        let width = get_width(e);
 
         match width {
             0 => {
@@ -124,33 +124,37 @@ impl<'a> ScannerU8Slice<'a> {
         loop {
             let e = self.data[p];
 
-            let width = utf8_char_width(e);
+            let width = get_width(e);
 
             match width {
                 0 => {
                     p += 1;
                 }
                 1 => {
-                    if e == b'\n' {
-                        let data = &self.data[self.position..p];
+                    match e {
+                        b'\n' => {
+                            let data = &self.data[self.position..p];
 
-                        if p + 1 < self.data_length && self.data[p + 1] == b'\r' {
-                            self.position = p + 2;
-                        } else {
-                            self.position = p + 1;
+                            if p + 1 < self.data_length && self.data[p + 1] == b'\r' {
+                                self.position = p + 2;
+                            } else {
+                                self.position = p + 1;
+                            }
+
+                            return Ok(Some(data));
                         }
+                        b'\r' => {
+                            let data = &self.data[self.position..p];
 
-                        return Ok(Some(data));
-                    } else if e == b'\r' {
-                        let data = &self.data[self.position..p];
+                            if p + 1 < self.data_length && self.data[p + 1] == b'\n' {
+                                self.position = p + 2;
+                            } else {
+                                self.position = p + 1;
+                            }
 
-                        if p + 1 < self.data_length && self.data[p + 1] == b'\n' {
-                            self.position = p + 2;
-                        } else {
-                            self.position = p + 1;
+                            return Ok(Some(data));
                         }
-
-                        return Ok(Some(data));
+                        _ => (),
                     }
 
                     p += 1;
@@ -206,7 +210,7 @@ impl<'a> ScannerU8Slice<'a> {
         loop {
             let e = self.data[self.position];
 
-            let width = utf8_char_width(e);
+            let width = get_width(e);
 
             match width {
                 0 => {
@@ -275,7 +279,7 @@ impl<'a> ScannerU8Slice<'a> {
         loop {
             let e = self.data[p];
 
-            let width = utf8_char_width(e);
+            let width = get_width(e);
 
             match width {
                 0 => {

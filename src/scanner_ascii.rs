@@ -227,30 +227,32 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
         loop {
             let e = self.buf[self.buf_offset];
 
-            println!("{}", e);
+            match e {
+                b'\n' => {
+                    if self.buf_length == 1 {
+                        self.passing_byte = Some(b'\r');
+                        self.buf_left_shift(1);
+                    } else if self.buf[self.buf_offset + 1] == b'\r' {
+                        self.buf_left_shift(2);
+                    } else {
+                        self.buf_left_shift(1);
+                    }
 
-            if e == b'\n' {
-                if self.buf_length == 1 {
-                    self.passing_byte = Some(b'\r');
-                    self.buf_left_shift(1);
-                } else if self.buf[self.buf_offset + 1] == b'\r' {
-                    self.buf_left_shift(2);
-                } else {
-                    self.buf_left_shift(1);
+                    return Ok(Some(temp));
                 }
+                b'\r' => {
+                    if self.buf_length == 1 {
+                        self.passing_byte = Some(b'\n');
+                        self.buf_left_shift(1);
+                    } else if self.buf[self.buf_offset + 1] == b'\n' {
+                        self.buf_left_shift(2);
+                    } else {
+                        self.buf_left_shift(1);
+                    }
 
-                return Ok(Some(temp));
-            } else if e == b'\r' {
-                if self.buf_length == 1 {
-                    self.passing_byte = Some(b'\n');
-                    self.buf_left_shift(1);
-                } else if self.buf[self.buf_offset + 1] == b'\n' {
-                    self.buf_left_shift(2);
-                } else {
-                    self.buf_left_shift(1);
+                    return Ok(Some(temp));
                 }
-
-                return Ok(Some(temp));
+                _ => (),
             }
 
             self.buf_left_shift(1);
@@ -297,28 +299,32 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
         loop {
             let e = self.buf[self.buf_offset];
 
-            if e == b'\n' {
-                if self.buf_length == 1 {
-                    self.passing_byte = Some(b'\r');
-                    self.buf_left_shift(1);
-                } else if self.buf[self.buf_offset + 1] == b'\r' {
-                    self.buf_left_shift(2);
-                } else {
-                    self.buf_left_shift(1);
-                }
+            match e {
+                b'\n' => {
+                    if self.buf_length == 1 {
+                        self.passing_byte = Some(b'\r');
+                        self.buf_left_shift(1);
+                    } else if self.buf[self.buf_offset + 1] == b'\r' {
+                        self.buf_left_shift(2);
+                    } else {
+                        self.buf_left_shift(1);
+                    }
 
-                return Ok(Some(temp));
-            } else if e == b'\r' {
-                if self.buf_length == 1 {
-                    self.passing_byte = Some(b'\n');
-                    self.buf_left_shift(1);
-                } else if self.buf[self.buf_offset + 1] == b'\n' {
-                    self.buf_left_shift(2);
-                } else {
-                    self.buf_left_shift(1);
+                    return Ok(Some(temp));
                 }
+                b'\r' => {
+                    if self.buf_length == 1 {
+                        self.passing_byte = Some(b'\n');
+                        self.buf_left_shift(1);
+                    } else if self.buf[self.buf_offset + 1] == b'\n' {
+                        self.buf_left_shift(2);
+                    } else {
+                        self.buf_left_shift(1);
+                    }
 
-                return Ok(Some(temp));
+                    return Ok(Some(temp));
+                }
+                _ => (),
             }
 
             self.buf_left_shift(1);
@@ -362,28 +368,32 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
         loop {
             let e = self.buf[self.buf_offset];
 
-            if e == b'\n' {
-                if self.buf_length == 1 {
-                    self.passing_byte = Some(b'\r');
-                    self.buf_left_shift(1);
-                } else if self.buf[self.buf_offset + 1] == b'\r' {
-                    self.buf_left_shift(2);
-                } else {
-                    self.buf_left_shift(1);
-                }
+            match e {
+                b'\n' => {
+                    if self.buf_length == 1 {
+                        self.passing_byte = Some(b'\r');
+                        self.buf_left_shift(1);
+                    } else if self.buf[self.buf_offset + 1] == b'\r' {
+                        self.buf_left_shift(2);
+                    } else {
+                        self.buf_left_shift(1);
+                    }
 
-                return Ok(Some(c));
-            } else if e == b'\r' {
-                if self.buf_length == 1 {
-                    self.passing_byte = Some(b'\n');
-                    self.buf_left_shift(1);
-                } else if self.buf[self.buf_offset + 1] == b'\n' {
-                    self.buf_left_shift(2);
-                } else {
-                    self.buf_left_shift(1);
+                    return Ok(Some(c));
                 }
+                b'\r' => {
+                    if self.buf_length == 1 {
+                        self.passing_byte = Some(b'\n');
+                        self.buf_left_shift(1);
+                    } else if self.buf[self.buf_offset + 1] == b'\n' {
+                        self.buf_left_shift(2);
+                    } else {
+                        self.buf_left_shift(1);
+                    }
 
-                return Ok(Some(c));
+                    return Ok(Some(c));
+                }
+                _ => (),
             }
 
             self.buf_left_shift(1);

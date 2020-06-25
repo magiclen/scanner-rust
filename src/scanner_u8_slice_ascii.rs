@@ -94,26 +94,30 @@ impl<'a> ScannerU8SliceAscii<'a> {
         loop {
             let e = self.data[p];
 
-            if e == b'\n' {
-                let data = &self.data[self.position..p];
+            match e {
+                b'\n' => {
+                    let data = &self.data[self.position..p];
 
-                if p + 1 < self.data_length && self.data[p + 1] == b'\r' {
-                    self.position = p + 2;
-                } else {
-                    self.position = p + 1;
+                    if p + 1 < self.data_length && self.data[p + 1] == b'\r' {
+                        self.position = p + 2;
+                    } else {
+                        self.position = p + 1;
+                    }
+
+                    return Ok(Some(data));
                 }
+                b'\r' => {
+                    let data = &self.data[self.position..p];
 
-                return Ok(Some(data));
-            } else if e == b'\r' {
-                let data = &self.data[self.position..p];
+                    if p + 1 < self.data_length && self.data[p + 1] == b'\n' {
+                        self.position = p + 2;
+                    } else {
+                        self.position = p + 1;
+                    }
 
-                if p + 1 < self.data_length && self.data[p + 1] == b'\n' {
-                    self.position = p + 2;
-                } else {
-                    self.position = p + 1;
+                    return Ok(Some(data));
                 }
-
-                return Ok(Some(data));
+                _ => (),
             }
 
             p += 1;

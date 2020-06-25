@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use crate::utf8::*;
+use crate::utf8_width::*;
 use crate::whitespaces::*;
 use crate::ScannerError;
 
@@ -63,7 +63,7 @@ impl<'a> ScannerStr<'a> {
 
         let e = data[self.position];
 
-        let width = utf8_char_width(e);
+        let width = unsafe { get_width_assume_valid(e) };
 
         match width {
             1 => {
@@ -105,30 +105,36 @@ impl<'a> ScannerStr<'a> {
         let mut p = self.position;
 
         loop {
-            let width = utf8_char_width(data[p]);
+            let e = data[p];
+
+            let width = unsafe { get_width_assume_valid(e) };
 
             match width {
                 1 => {
-                    if data[p] == b'\n' {
-                        let text = &self.text[self.position..p];
+                    match e {
+                        b'\n' => {
+                            let text = &self.text[self.position..p];
 
-                        if p + 1 < self.text_length && data[p + 1] == b'\r' {
-                            self.position = p + 2;
-                        } else {
-                            self.position = p + 1;
+                            if p + 1 < self.text_length && data[p + 1] == b'\r' {
+                                self.position = p + 2;
+                            } else {
+                                self.position = p + 1;
+                            }
+
+                            return Ok(Some(text));
                         }
+                        b'\r' => {
+                            let text = &self.text[self.position..p];
 
-                        return Ok(Some(text));
-                    } else if data[p] == b'\r' {
-                        let text = &self.text[self.position..p];
+                            if p + 1 < self.text_length && data[p + 1] == b'\n' {
+                                self.position = p + 2;
+                            } else {
+                                self.position = p + 1;
+                            }
 
-                        if p + 1 < self.text_length && data[p + 1] == b'\n' {
-                            self.position = p + 2;
-                        } else {
-                            self.position = p + 1;
+                            return Ok(Some(text));
                         }
-
-                        return Ok(Some(text));
+                        _ => (),
                     }
 
                     p += 1;
@@ -178,7 +184,7 @@ impl<'a> ScannerStr<'a> {
         loop {
             let e = data[self.position];
 
-            let width = utf8_char_width(e);
+            let width = unsafe { get_width_assume_valid(e) };
 
             match width {
                 1 => {
@@ -244,7 +250,7 @@ impl<'a> ScannerStr<'a> {
         loop {
             let e = data[p];
 
-            let width = utf8_char_width(e);
+            let width = unsafe { get_width_assume_valid(e) };
 
             match width {
                 1 => {
@@ -323,7 +329,7 @@ impl<'a> ScannerStr<'a> {
         let mut c = 0;
 
         while c < max_number_of_characters {
-            let width = utf8_char_width(data[p]);
+            let width = unsafe { get_width_assume_valid(data[p]) };
 
             p += width;
 

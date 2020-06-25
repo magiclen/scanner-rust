@@ -10,7 +10,7 @@ use std::str::{from_utf8, from_utf8_unchecked};
 use crate::generic_array::typenum::{IsGreaterOrEqual, True, U256, U4};
 use crate::generic_array::{ArrayLength, GenericArray};
 
-use crate::utf8::*;
+use crate::utf8_width::*;
 use crate::whitespaces::*;
 use crate::ScannerError;
 
@@ -196,7 +196,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
 
         let e = self.buf[self.buf_offset];
 
-        let width = utf8_char_width(e);
+        let width = get_width(e);
 
         match width {
             0 => {
@@ -267,7 +267,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
         loop {
             let e = self.buf[self.buf_offset];
 
-            let width = utf8_char_width(e);
+            let width = get_width(e);
 
             match width {
                 0 => {
@@ -276,28 +276,32 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     temp.push(REPLACEMENT_CHARACTER);
                 }
                 1 => {
-                    if e == b'\n' {
-                        if self.buf_length == 1 {
-                            self.passing_byte = Some(b'\r');
-                            self.buf_left_shift(1);
-                        } else if self.buf[self.buf_offset + 1] == b'\r' {
-                            self.buf_left_shift(2);
-                        } else {
-                            self.buf_left_shift(1);
-                        }
+                    match e {
+                        b'\n' => {
+                            if self.buf_length == 1 {
+                                self.passing_byte = Some(b'\r');
+                                self.buf_left_shift(1);
+                            } else if self.buf[self.buf_offset + 1] == b'\r' {
+                                self.buf_left_shift(2);
+                            } else {
+                                self.buf_left_shift(1);
+                            }
 
-                        return Ok(Some(temp));
-                    } else if e == b'\r' {
-                        if self.buf_length == 1 {
-                            self.passing_byte = Some(b'\n');
-                            self.buf_left_shift(1);
-                        } else if self.buf[self.buf_offset + 1] == b'\n' {
-                            self.buf_left_shift(2);
-                        } else {
-                            self.buf_left_shift(1);
+                            return Ok(Some(temp));
                         }
+                        b'\r' => {
+                            if self.buf_length == 1 {
+                                self.passing_byte = Some(b'\n');
+                                self.buf_left_shift(1);
+                            } else if self.buf[self.buf_offset + 1] == b'\n' {
+                                self.buf_left_shift(2);
+                            } else {
+                                self.buf_left_shift(1);
+                            }
 
-                        return Ok(Some(temp));
+                            return Ok(Some(temp));
+                        }
+                        _ => (),
                     }
 
                     self.buf_left_shift(1);
@@ -380,7 +384,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
         loop {
             let e = self.buf[self.buf_offset];
 
-            let width = utf8_char_width(e);
+            let width = get_width(e);
 
             match width {
                 0 => {
@@ -389,28 +393,32 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     temp.push(e);
                 }
                 1 => {
-                    if e == b'\n' {
-                        if self.buf_length == 1 {
-                            self.passing_byte = Some(b'\r');
-                            self.buf_left_shift(1);
-                        } else if self.buf[self.buf_offset + 1] == b'\r' {
-                            self.buf_left_shift(2);
-                        } else {
-                            self.buf_left_shift(1);
-                        }
+                    match e {
+                        b'\n' => {
+                            if self.buf_length == 1 {
+                                self.passing_byte = Some(b'\r');
+                                self.buf_left_shift(1);
+                            } else if self.buf[self.buf_offset + 1] == b'\r' {
+                                self.buf_left_shift(2);
+                            } else {
+                                self.buf_left_shift(1);
+                            }
 
-                        return Ok(Some(temp));
-                    } else if e == b'\r' {
-                        if self.buf_length == 1 {
-                            self.passing_byte = Some(b'\n');
-                            self.buf_left_shift(1);
-                        } else if self.buf[self.buf_offset + 1] == b'\n' {
-                            self.buf_left_shift(2);
-                        } else {
-                            self.buf_left_shift(1);
+                            return Ok(Some(temp));
                         }
+                        b'\r' => {
+                            if self.buf_length == 1 {
+                                self.passing_byte = Some(b'\n');
+                                self.buf_left_shift(1);
+                            } else if self.buf[self.buf_offset + 1] == b'\n' {
+                                self.buf_left_shift(2);
+                            } else {
+                                self.buf_left_shift(1);
+                            }
 
-                        return Ok(Some(temp));
+                            return Ok(Some(temp));
+                        }
+                        _ => (),
                     }
 
                     self.buf_left_shift(1);
@@ -481,7 +489,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
         loop {
             let e = self.buf[self.buf_offset];
 
-            let width = utf8_char_width(e);
+            let width = get_width(e);
 
             match width {
                 0 => {
@@ -490,28 +498,32 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     c += 1;
                 }
                 1 => {
-                    if e == b'\n' {
-                        if self.buf_length == 1 {
-                            self.passing_byte = Some(b'\r');
-                            self.buf_left_shift(1);
-                        } else if self.buf[self.buf_offset + 1] == b'\r' {
-                            self.buf_left_shift(2);
-                        } else {
-                            self.buf_left_shift(1);
-                        }
+                    match e {
+                        b'\n' => {
+                            if self.buf_length == 1 {
+                                self.passing_byte = Some(b'\r');
+                                self.buf_left_shift(1);
+                            } else if self.buf[self.buf_offset + 1] == b'\r' {
+                                self.buf_left_shift(2);
+                            } else {
+                                self.buf_left_shift(1);
+                            }
 
-                        return Ok(Some(c));
-                    } else if e == b'\r' {
-                        if self.buf_length == 1 {
-                            self.passing_byte = Some(b'\n');
-                            self.buf_left_shift(1);
-                        } else if self.buf[self.buf_offset + 1] == b'\n' {
-                            self.buf_left_shift(2);
-                        } else {
-                            self.buf_left_shift(1);
+                            return Ok(Some(c));
                         }
+                        b'\r' => {
+                            if self.buf_length == 1 {
+                                self.passing_byte = Some(b'\n');
+                                self.buf_left_shift(1);
+                            } else if self.buf[self.buf_offset + 1] == b'\n' {
+                                self.buf_left_shift(2);
+                            } else {
+                                self.buf_left_shift(1);
+                            }
 
-                        return Ok(Some(c));
+                            return Ok(Some(c));
+                        }
+                        _ => (),
                     }
 
                     self.buf_left_shift(1);
@@ -577,7 +589,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
         loop {
             let e = self.buf[self.buf_offset];
 
-            let width = utf8_char_width(e);
+            let width = get_width(e);
 
             match width {
                 0 => {
@@ -668,7 +680,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
         loop {
             let e = self.buf[self.buf_offset];
 
-            let width = utf8_char_width(e);
+            let width = get_width(e);
 
             match width {
                 0 => {
@@ -818,7 +830,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
         loop {
             let e = self.buf[self.buf_offset];
 
-            let width = utf8_char_width(e);
+            let width = get_width(e);
 
             match width {
                 0 => {
@@ -938,7 +950,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
         loop {
             let e = self.buf[self.buf_offset];
 
-            let width = utf8_char_width(e);
+            let width = get_width(e);
 
             match width {
                 0 => {
@@ -1185,7 +1197,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
             let mut utf8_length = 0;
 
             loop {
-                let width = utf8_char_width(self.buf[self.buf_offset + utf8_length]).max(1);
+                let width = get_width(self.buf[self.buf_offset + utf8_length]).max(1);
 
                 utf8_length += width;
 
@@ -1286,7 +1298,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
             let mut utf8_length = 0;
 
             loop {
-                let width = utf8_char_width(self.buf[self.buf_offset + utf8_length]).max(1);
+                let width = get_width(self.buf[self.buf_offset + utf8_length]).max(1);
 
                 utf8_length += width;
 
@@ -1375,7 +1387,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
             let mut utf8_length = 0;
 
             loop {
-                let width = utf8_char_width(self.buf[self.buf_offset + utf8_length]).max(1);
+                let width = get_width(self.buf[self.buf_offset + utf8_length]).max(1);
 
                 utf8_length += width;
 
