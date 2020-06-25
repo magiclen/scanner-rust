@@ -23,6 +23,3 @@ utf8-width = "0.1"
 version = ">=0.4"
 features = ["Debug"]
 default-features = false
-
-[features]
-nightly = []
