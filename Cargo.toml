@@ -10,7 +10,7 @@ categories = ["parser-implementations"]
 description = "Simple text scanners which can parse primitive types and strings using UTF-8 or ASCII."
 readme = "README.md"
 license = "MIT"
-include = ["src/**/*", "Cargo.toml", "LICENSE", "README.md"]
+include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
 
 [badges.travis-ci]
 repository = "magiclen/scanner-rust"
