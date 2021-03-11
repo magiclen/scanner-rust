@@ -1,6 +1,6 @@
 #[inline]
 pub(crate) fn is_whitespace_1(c: u8) -> bool {
-    (c >= 9 && c <= 13) || (c >= 28 && c <= 32)
+    (9..=13).contains(&c) || (28..=32).contains(&c)
 }
 
 #[inline]
@@ -9,28 +9,19 @@ pub(crate) fn is_whitespace_3(b1: u8, b2: u8, b3: u8) -> bool {
         225 => {
             match b2 {
                 154 => {
-                    match b3 {
-                        128 => true,
-                        _ => false,
-                    }
+                    matches!(b3, 128)
                 }
                 160 => {
-                    match b3 {
-                        142 => true,
-                        _ => false,
-                    }
+                    matches!(b3, 142)
                 }
                 _ => false,
             }
         }
         226 => {
             match b2 {
-                128 => (b3 >= 128 && b3 <= 138) || b3 == 168 || b3 == 169,
+                128 => (128..=138).contains(&b3) || b3 == 168 || b3 == 169,
                 129 => {
-                    match b3 {
-                        159 => true,
-                        _ => false,
-                    }
+                    matches!(b3, 159)
                 }
                 _ => false,
             }
@@ -38,10 +29,7 @@ pub(crate) fn is_whitespace_3(b1: u8, b2: u8, b3: u8) -> bool {
         227 => {
             match b2 {
                 128 => {
-                    match b3 {
-                        128 => true,
-                        _ => false,
-                    }
+                    matches!(b3, 128)
                 }
                 _ => false,
             }
