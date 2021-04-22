@@ -1,7 +1,7 @@
 Scanner
 ====================
 
-[![Build Status](https://travis-ci.org/magiclen/scanner-rust.svg?branch=master)](https://travis-ci.org/magiclen/scanner-rust)
+[![CI](https://github.com/magiclen/scanner-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/magiclen/scanner-rust/actions/workflows/ci.yml)
 
 This crate provides Java-like Scanners which can parse primitive types and strings using UTF-8 or ASCII.
 

@@ -1,6 +1,6 @@
 [package]
 name = "scanner-rust"
-version = "2.0.14"
+version = "2.0.15"
 authors = ["Magic Len <len@magiclen.org>"]
 edition = "2018"
 repository = "https://github.com/magiclen/scanner-rust"
@@ -11,10 +11,6 @@ description = "Simple text scanners which can parse primitive types and strings 
 readme = "README.md"
 license = "MIT"
 include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
-
-[badges.travis-ci]
-repository = "magiclen/scanner-rust"
-branch = "master"
 
 [dependencies]
 generic-array = "0.14"
