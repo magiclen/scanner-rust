@@ -7,10 +7,11 @@ use std::path::Path;
 use std::str::FromStr;
 use std::str::{from_utf8, from_utf8_unchecked};
 
-use crate::generic_array::typenum::{IsGreaterOrEqual, True, U256, U4};
-use crate::generic_array::{ArrayLength, GenericArray};
+use utf8_width::*;
 
-use crate::utf8_width::*;
+use generic_array::typenum::{IsGreaterOrEqual, True, U256, U4};
+use generic_array::{ArrayLength, GenericArray};
+
 use crate::whitespaces::*;
 use crate::ScannerError;
 
@@ -30,8 +31,6 @@ impl<R: Read> Scanner<R> {
     /// Create a scanner from a reader.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use std::io;
     ///
     /// use scanner_rust::Scanner;
@@ -48,8 +47,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Create a scanner from a reader and set the buffer size via generics.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use std::io;
     ///
     /// use scanner_rust::generic_array::typenum::U1024;
@@ -73,8 +70,6 @@ impl Scanner<File> {
     /// Create a scanner to read data from a file by its path.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::scan_path("Cargo.toml").unwrap();
@@ -89,8 +84,6 @@ impl<N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<File, N> 
     /// Create a scanner to read data from a file by its path and set the buffer size via generics.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::generic_array::typenum::U1024;
     /// use scanner_rust::Scanner;
     ///
@@ -175,8 +168,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next char. If the data is not a correct char, it will return a `Ok(Some(REPLACEMENT_CHARACTER))` which is �. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("5 c 中文".as_bytes());
@@ -246,8 +237,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -363,8 +352,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next line include the tailing line character (or line chracters like `CrLf`(`\r\n`)) without fully validating UTF-8. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -467,8 +454,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Drop the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`. If there are something to read, it will return `Ok(Some(i))`. The `i` is the length of the dropped line.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -568,8 +553,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Skip the next whitespaces (`javaWhitespace`). If there is nothing to read, it will return `Ok(false)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2   c".as_bytes());
@@ -647,8 +630,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -798,8 +779,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces without fully validating UTF-8. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -918,8 +897,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Drop the next token separated by whitespaces. If there is nothing to read, it will return `Ok(None)`. If there are something to read, it will return `Ok(Some(i))`. The `i` is the length of the dropped line.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -1030,8 +1007,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next bytes. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -1080,8 +1055,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Drop the next N bytes. If there is nothing to read, it will return `Ok(None)`. If there are something to read, it will return `Ok(Some(i))`. The `i` is the length of the actually dropped bytes.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -1129,8 +1102,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -1233,8 +1204,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next data until it reaches a specific boundary without fully validating UTF-8. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -1329,8 +1298,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Drop the next data until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -1421,8 +1388,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// If the `shift` parameter is set to `false`, the guaranteed minimum data length of the result is **32** (if the unread data is long enough), otherwise it is `BUFFER_SIZE`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -1465,8 +1430,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1482,8 +1445,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1499,8 +1460,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1516,8 +1475,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1533,8 +1490,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1550,8 +1505,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1567,8 +1520,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1584,8 +1535,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1601,8 +1550,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1618,8 +1565,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1635,8 +1580,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1652,8 +1595,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1669,8 +1610,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2.5".as_bytes());
@@ -1686,8 +1625,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next token separated by whitespaces and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2.5".as_bytes());
@@ -1720,8 +1657,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1740,8 +1675,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1760,8 +1693,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1780,8 +1711,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1800,8 +1729,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1820,8 +1747,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1840,8 +1765,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1860,8 +1783,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1880,8 +1801,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1900,8 +1819,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1920,8 +1837,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1940,8 +1855,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2".as_bytes());
@@ -1960,8 +1873,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2.5".as_bytes());
@@ -1980,8 +1891,6 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// Read the next text until it reaches a specific boundary and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::Scanner;
     ///
     /// let mut sc = Scanner::new("1 2.5".as_bytes());

@@ -10,8 +10,6 @@ This crate provides Java-like Scanners which can parse primitive types and strin
 `Scanner` or `ScannerAscii` can be used for reading strings or raw data from a stream.
 
 ```rust
-extern crate scanner_rust;
-
 use std::io::{self, Write};
 
 use scanner_rust::ScannerAscii;
@@ -55,8 +53,6 @@ The default buffer size is 256 bytes. If you want to change that, you can use th
 For example, to change the buffer size to 64 bytes,
 
 ```rust
-extern crate scanner_rust;
-
 use scanner_rust::generic_array::typenum::U64;
 use scanner_rust::Scanner;
 
@@ -68,8 +64,6 @@ let mut sc: Scanner<_, U64> = Scanner::scan_path2("Cargo.toml").unwrap();
 `ScannerStr` can be used for reading strings from a string slice.
 
 ```rust
-extern crate scanner_rust;
-
 use std::io::{self, Write};
 
 use scanner_rust::ScannerStr;
@@ -92,8 +86,6 @@ assert_eq!(None, sc.next_line().unwrap());
 `ScannerU8Slice` or `ScannerU8SliceAscii` can be used for reading raw data from a `u8` slice.
 
 ```rust
-extern crate scanner_rust;
-
 use std::io::{self, Write};
 
 use scanner_rust::ScannerU8Slice;

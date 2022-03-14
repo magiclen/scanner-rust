@@ -1,5 +1,3 @@
-extern crate scanner_rust;
-
 use std::fmt::Write;
 use std::path::Path;
 

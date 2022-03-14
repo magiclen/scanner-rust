@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
-use crate::utf8_width::*;
+use utf8_width::*;
+
 use crate::whitespaces::*;
 use crate::ScannerError;
 
@@ -16,8 +17,6 @@ impl<'a> ScannerStr<'a> {
     /// Create a scanner from a string.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use std::io;
     ///
     /// use scanner_rust::ScannerStr;
@@ -40,8 +39,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next char. If the data is not a correct char, it will return a `Ok(Some(REPLACEMENT_CHARACTER))` which is �. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("5 c 中文");
@@ -84,8 +81,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("123 456\r\n789 \n\n 中文 ");
@@ -161,8 +156,6 @@ impl<'a> ScannerStr<'a> {
     /// Skip the next whitespaces (`javaWhitespace`). If there is nothing to read, it will return `Ok(false)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2   c");
@@ -221,8 +214,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("123 456\r\n789 \n\n 中文 ");
@@ -301,8 +292,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text (as a string slice) with a specific max number of characters. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("123 456\r\n789 \n\n 中文 ");
@@ -352,8 +341,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("123 456\r\n789 \n\n 中文 ");
@@ -421,8 +408,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -438,8 +423,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -455,8 +438,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -472,8 +453,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -489,8 +468,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -506,8 +483,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -523,8 +498,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -540,8 +513,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -557,8 +528,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -574,8 +543,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -591,8 +558,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -608,8 +573,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -625,8 +588,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2.5");
@@ -642,8 +603,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next token separated by whitespaces and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2.5");
@@ -676,8 +635,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -696,8 +653,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -716,8 +671,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -736,8 +689,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -756,8 +707,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -776,8 +725,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -796,8 +743,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -816,8 +761,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -836,8 +779,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -856,8 +797,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -876,8 +815,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -896,8 +833,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2");
@@ -916,8 +851,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2.5");
@@ -936,8 +869,6 @@ impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerStr;
     ///
     /// let mut sc = ScannerStr::new("1 2.5");

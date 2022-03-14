@@ -1,5 +1,3 @@
-extern crate scanner_rust;
-
 use scanner_rust::ScannerAscii;
 
 #[test]

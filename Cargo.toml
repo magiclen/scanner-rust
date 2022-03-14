@@ -1,8 +1,8 @@
 [package]
 name = "scanner-rust"
-version = "2.0.15"
+version = "2.0.16"
 authors = ["Magic Len <len@magiclen.org>"]
-edition = "2018"
+edition = "2021"
 repository = "https://github.com/magiclen/scanner-rust"
 homepage = "https://magiclen.org/scanner-rust"
 keywords = ["scanner", "java", "read", "stdin", "stream"]

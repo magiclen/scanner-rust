@@ -4,8 +4,6 @@
 Input an existing directory and a text file, and this tool can help you split that text file by empty lines into small text files named `%d.txt`.
 */
 
-extern crate scanner_rust;
-
 use std::fs;
 use std::io;
 use std::io::Write;

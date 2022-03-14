@@ -1,7 +1,8 @@
 use std::char::REPLACEMENT_CHARACTER;
 use std::str::{from_utf8, from_utf8_unchecked, FromStr};
 
-use crate::utf8_width::*;
+use utf8_width::*;
+
 use crate::whitespaces::*;
 use crate::ScannerError;
 
@@ -17,8 +18,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Create a scanner from in-memory bytes.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use std::io;
     ///
     /// use scanner_rust::ScannerU8Slice;
@@ -41,8 +40,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next char. If the data is not a correct char, it will return a `Ok(Some(REPLACEMENT_CHARACTER))` which is �. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("5 c 中文".as_bytes());
@@ -103,8 +100,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -189,8 +184,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Skip the next whitespaces (`javaWhitespace`). If there is nothing to read, it will return `Ok(false)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2   c".as_bytes());
@@ -252,8 +245,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -347,8 +338,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next bytes. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -380,8 +369,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Drop the next N bytes. If there is nothing to read, it will return `Ok(None)`. If there are something to read, it will return `Ok(Some(i))`. The `i` is the length of the actually dropped bytes.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -413,8 +400,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next data until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("123 456\r\n789 \n\n 中文 ".as_bytes());
@@ -472,7 +457,7 @@ impl<'a> ScannerU8Slice<'a> {
         let result = self.next()?;
 
         match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
             None => Ok(None),
         }
     }
@@ -480,8 +465,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -497,8 +480,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -514,8 +495,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -531,8 +510,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -548,8 +525,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -565,8 +540,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -582,8 +555,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -599,8 +570,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -616,8 +585,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -633,8 +600,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -650,8 +615,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -667,8 +630,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -684,8 +645,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2.5".as_bytes());
@@ -701,8 +660,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next token separated by whitespaces and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2.5".as_bytes());
@@ -727,7 +684,7 @@ impl<'a> ScannerU8Slice<'a> {
         let result = self.next_until(boundary)?;
 
         match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
             None => Ok(None),
         }
     }
@@ -735,8 +692,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `u8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -755,8 +710,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -775,8 +728,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -795,8 +746,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -815,8 +764,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -835,8 +782,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -855,8 +800,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -875,8 +818,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -895,8 +836,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -915,8 +854,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -935,8 +872,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -955,8 +890,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2".as_bytes());
@@ -975,8 +908,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2.5".as_bytes());
@@ -995,8 +926,6 @@ impl<'a> ScannerU8Slice<'a> {
     /// Read the next text until it reaches a specific boundary and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
-    /// extern crate scanner_rust;
-    ///
     /// use scanner_rust::ScannerU8Slice;
     ///
     /// let mut sc = ScannerU8Slice::new("1 2.5".as_bytes());

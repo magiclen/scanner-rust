@@ -1,5 +1,3 @@
-extern crate scanner_rust;
-
 use scanner_rust::ScannerAscii;
 
 #[test]
@@ -134,63 +132,63 @@ fn skip_whitespaces() {
 
     let mut sc = ScannerAscii::new(data.as_bytes());
 
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
     assert_eq!(Some('1'), sc.next_char().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
     assert_eq!(Some('2'), sc.next_char().unwrap());
     assert_eq!(Some('3'), sc.next_char().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
     assert_eq!(Some('4'), sc.next_char().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
     assert_eq!(Some('5'), sc.next_char().unwrap());
     assert_eq!(Some('6'), sc.next_char().unwrap());
     assert_eq!(None, sc.next_char().unwrap());
-    assert_eq!(false, sc.skip_whitespaces().unwrap());
+    assert!(!sc.skip_whitespaces().unwrap());
 
     let data = "123     \t\n\r\n    456";
 
     let mut sc = ScannerAscii::new(data.as_bytes());
 
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
     assert_eq!(Some('1'), sc.next_char().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
     assert_eq!(Some('2'), sc.next_char().unwrap());
     assert_eq!(Some('3'), sc.next_char().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
     assert_eq!(Some('4'), sc.next_char().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
     assert_eq!(Some('5'), sc.next_char().unwrap());
     assert_eq!(Some('6'), sc.next_char().unwrap());
     assert_eq!(None, sc.next_char().unwrap());
-    assert_eq!(false, sc.skip_whitespaces().unwrap());
+    assert!(!sc.skip_whitespaces().unwrap());
 
     let data = "123   abc  \t\n\r\n    456\n";
 
     let mut sc = ScannerAscii::new(data.as_bytes());
 
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
     assert_eq!(Some('1'), sc.next_char().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
     assert_eq!(Some('2'), sc.next_char().unwrap());
     assert_eq!(Some('3'), sc.next_char().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
     assert_eq!(Some('a'), sc.next_char().unwrap());
     assert_eq!(Some('b'), sc.next_char().unwrap());
     assert_eq!(Some('c'), sc.next_char().unwrap());
     assert_eq!(Some(' '), sc.next_char().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
     assert_eq!(Some('4'), sc.next_char().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
     assert_eq!(Some('5'), sc.next_char().unwrap());
     assert_eq!(Some('6'), sc.next_char().unwrap());
-    assert_eq!(true, sc.skip_whitespaces().unwrap());
-    assert_eq!(false, sc.skip_whitespaces().unwrap());
+    assert!(sc.skip_whitespaces().unwrap());
+    assert!(!sc.skip_whitespaces().unwrap());
 }
 
 #[test]

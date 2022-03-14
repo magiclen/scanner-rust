@@ -4,8 +4,6 @@
 Input two integers and add them together.
 */
 
-extern crate scanner_rust;
-
 use std::io::{self, Write};
 
 use scanner_rust::ScannerAscii;
