@@ -56,8 +56,6 @@ fn main() -> Result<(), ScannerError> {
         }
     };
 
-    drop(sc);
-
     let mut sc = Scanner::scan_path(file_path)?;
 
     let mut counter = 1;
@@ -70,7 +68,7 @@ fn main() -> Result<(), ScannerError> {
             Some(line) => {
                 if line.is_empty() {
                     let file_name = format!("{}.txt", counter);
-                    let file_path = Path::join(&directory, &file_name);
+                    let file_path = Path::join(&directory, file_name);
 
                     fs::write(file_path, &s[..(s.len() - 1)])?;
 
@@ -85,7 +83,7 @@ fn main() -> Result<(), ScannerError> {
             None => {
                 if !s.is_empty() {
                     let file_name = format!("{}.txt", counter);
-                    let file_path = Path::join(&directory, &file_name);
+                    let file_path = Path::join(&directory, file_name);
 
                     fs::write(file_path, &s[..(s.len() - 1)])?;
                 }
