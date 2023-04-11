@@ -4,10 +4,11 @@
 Input an existing directory and a text file, and this tool can help you split that text file by empty lines into small text files named `%d.txt`.
 */
 
-use std::fs;
-use std::io;
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::{
+    fs, io,
+    io::Write,
+    path::{Path, PathBuf},
+};
 
 use scanner_rust::{Scanner, ScannerError};
 
@@ -30,7 +31,7 @@ fn main() -> Result<(), ScannerError> {
                 }
 
                 break path;
-            }
+            },
             None => return Ok(()),
         }
     };
@@ -51,7 +52,7 @@ fn main() -> Result<(), ScannerError> {
                 }
 
                 break path;
-            }
+            },
             None => return Ok(()),
         }
     };
@@ -79,7 +80,7 @@ fn main() -> Result<(), ScannerError> {
                     s.push_str(&line);
                     s.push('\n');
                 }
-            }
+            },
             None => {
                 if !s.is_empty() {
                     let file_name = format!("{}.txt", counter);
@@ -89,7 +90,7 @@ fn main() -> Result<(), ScannerError> {
                 }
 
                 break;
-            }
+            },
         }
     }
 

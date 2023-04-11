@@ -1,26 +1,31 @@
-use std::char::REPLACEMENT_CHARACTER;
-use std::cmp::Ordering;
-use std::fs::File;
-use std::intrinsics::copy;
-use std::io::Read;
-use std::path::Path;
-use std::str::{from_utf8_unchecked, FromStr};
+use std::{
+    char::REPLACEMENT_CHARACTER,
+    cmp::Ordering,
+    fs::File,
+    intrinsics::copy,
+    io::Read,
+    path::Path,
+    str::{from_utf8_unchecked, FromStr},
+};
 
-use crate::generic_array::typenum::{IsGreaterOrEqual, True, U256, U4};
-use crate::generic_array::{ArrayLength, GenericArray};
-
-use crate::whitespaces::*;
-use crate::ScannerError;
+use crate::{
+    generic_array::{
+        typenum::{IsGreaterOrEqual, True, U256, U4},
+        ArrayLength, GenericArray,
+    },
+    whitespaces::*,
+    ScannerError,
+};
 
 /// A simple text scanner which can parse primitive types and strings using ASCII.
 #[derive(Educe)]
 #[educe(Debug)]
 pub struct ScannerAscii<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True> = U256> {
     #[educe(Debug(ignore))]
-    reader: R,
-    buf: GenericArray<u8, N>,
-    buf_length: usize,
-    buf_offset: usize,
+    reader:       R,
+    buf:          GenericArray<u8, N>,
+    buf_length:   usize,
+    buf_offset:   usize,
     passing_byte: Option<u8>,
 }
 
@@ -46,8 +51,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
     /// ```rust
     /// use std::io;
     ///
-    /// use scanner_rust::generic_array::typenum::U1024;
-    /// use scanner_rust::ScannerAscii;
+    /// use scanner_rust::{generic_array::typenum::U1024, ScannerAscii};
     ///
     /// let mut sc: ScannerAscii<_, U1024> = ScannerAscii::new2(io::stdin());
     /// ```
@@ -81,10 +85,10 @@ impl<N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerAscii<File
     /// Create a scanner to read data from a file by its path and set the buffer size via generics.
     ///
     /// ```rust
-    /// use scanner_rust::generic_array::typenum::U1024;
-    /// use scanner_rust::ScannerAscii;
+    /// use scanner_rust::{generic_array::typenum::U1024, ScannerAscii};
     ///
-    /// let mut sc: ScannerAscii<_, U1024> = ScannerAscii::scan_path2("Cargo.toml").unwrap();
+    /// let mut sc: ScannerAscii<_, U1024> =
+    ///     ScannerAscii::scan_path2("Cargo.toml").unwrap();
     /// ```
     #[inline]
     pub fn scan_path2<P: AsRef<Path>>(path: P) -> Result<ScannerAscii<File, N>, ScannerError> {
@@ -227,7 +231,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
                     }
 
                     return Ok(Some(temp));
-                }
+                },
                 b'\r' => {
                     if self.buf_length == 1 {
                         self.passing_byte = Some(b'\n');
@@ -239,7 +243,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
                     }
 
                     return Ok(Some(temp));
-                }
+                },
                 _ => (),
             }
 
@@ -297,7 +301,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
                     }
 
                     return Ok(Some(temp));
-                }
+                },
                 b'\r' => {
                     if self.buf_length == 1 {
                         self.passing_byte = Some(b'\n');
@@ -309,7 +313,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
                     }
 
                     return Ok(Some(temp));
-                }
+                },
                 _ => (),
             }
 
@@ -364,7 +368,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
                     }
 
                     return Ok(Some(c));
-                }
+                },
                 b'\r' => {
                     if self.buf_length == 1 {
                         self.passing_byte = Some(b'\n');
@@ -376,7 +380,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
                     }
 
                     return Ok(Some(c));
-                }
+                },
                 _ => (),
             }
 
@@ -743,14 +747,14 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
                                     )
                                     .as_ref(),
                                 );
-                            }
+                            },
                             Ordering::Less => {
                                 let adjusted_temp_length = temp.len() - (boundary_length - p);
 
                                 unsafe {
                                     temp.as_mut_vec().set_len(adjusted_temp_length);
                                 }
-                            }
+                            },
                         }
 
                         self.buf_left_shift(p);
@@ -825,14 +829,14 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
                                     &self.buf
                                         [self.buf_offset..(self.buf_offset + p - boundary_length)],
                                 );
-                            }
+                            },
                             Ordering::Less => {
                                 let adjusted_temp_length = temp.len() - (boundary_length - p);
 
                                 unsafe {
                                     temp.set_len(adjusted_temp_length);
                                 }
-                            }
+                            },
                         }
 
                         self.buf_left_shift(p);
@@ -899,10 +903,10 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> ScannerA
                             Ordering::Equal => (),
                             Ordering::Greater => {
                                 c += p - boundary_length;
-                            }
+                            },
                             Ordering::Less => {
                                 c -= boundary_length - p;
-                            }
+                            },
                         }
 
                         self.buf_left_shift(p);

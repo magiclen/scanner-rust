@@ -1,29 +1,30 @@
-use std::char::REPLACEMENT_CHARACTER;
-use std::cmp::Ordering;
-use std::fs::File;
-use std::intrinsics::copy;
-use std::io::{ErrorKind, Read};
-use std::path::Path;
-use std::str::FromStr;
-use std::str::{from_utf8, from_utf8_unchecked};
+use std::{
+    char::REPLACEMENT_CHARACTER,
+    cmp::Ordering,
+    fs::File,
+    intrinsics::copy,
+    io::{ErrorKind, Read},
+    path::Path,
+    str::{from_utf8, from_utf8_unchecked, FromStr},
+};
 
+use generic_array::{
+    typenum::{IsGreaterOrEqual, True, U256, U4},
+    ArrayLength, GenericArray,
+};
 use utf8_width::*;
 
-use generic_array::typenum::{IsGreaterOrEqual, True, U256, U4};
-use generic_array::{ArrayLength, GenericArray};
-
-use crate::whitespaces::*;
-use crate::ScannerError;
+use crate::{whitespaces::*, ScannerError};
 
 /// A simple text scanner which can parse primitive types and strings using UTF-8.
 #[derive(Educe)]
 #[educe(Debug)]
 pub struct Scanner<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True> = U256> {
     #[educe(Debug(ignore))]
-    reader: R,
-    buf: GenericArray<u8, N>,
-    buf_length: usize,
-    buf_offset: usize,
+    reader:       R,
+    buf:          GenericArray<u8, N>,
+    buf_length:   usize,
+    buf_offset:   usize,
     passing_byte: Option<u8>,
 }
 
@@ -49,8 +50,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
     /// ```rust
     /// use std::io;
     ///
-    /// use scanner_rust::generic_array::typenum::U1024;
-    /// use scanner_rust::Scanner;
+    /// use scanner_rust::{generic_array::typenum::U1024, Scanner};
     ///
     /// let mut sc: Scanner<_, U1024> = Scanner::new2(io::stdin());
     /// ```
@@ -84,8 +84,7 @@ impl<N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<File, N> 
     /// Create a scanner to read data from a file by its path and set the buffer size via generics.
     ///
     /// ```rust
-    /// use scanner_rust::generic_array::typenum::U1024;
-    /// use scanner_rust::Scanner;
+    /// use scanner_rust::{generic_array::typenum::U1024, Scanner};
     ///
     /// let mut sc: Scanner<_, U1024> = Scanner::scan_path2("Cargo.toml").unwrap();
     /// ```
@@ -194,12 +193,12 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                 self.buf_left_shift(1);
 
                 Ok(Some(REPLACEMENT_CHARACTER))
-            }
+            },
             1 => {
                 self.buf_left_shift(1);
 
                 Ok(Some(e as char))
-            }
+            },
             _ => {
                 while self.buf_length < width {
                     match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..]) {
@@ -207,7 +206,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                             self.buf_left_shift(1);
 
                             return Ok(Some(REPLACEMENT_CHARACTER));
-                        }
+                        },
                         Ok(c) => self.buf_length += c,
                         Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
                         Err(err) => return Err(err.into()),
@@ -223,14 +222,14 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                         self.buf_left_shift(width);
 
                         Ok(c)
-                    }
+                    },
                     Err(_) => {
                         self.buf_left_shift(1);
 
                         Ok(Some(REPLACEMENT_CHARACTER))
-                    }
+                    },
                 }
-            }
+            },
         }
     }
 
@@ -263,7 +262,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     self.buf_left_shift(1);
 
                     temp.push(REPLACEMENT_CHARACTER);
-                }
+                },
                 1 => {
                     match e {
                         b'\n' => {
@@ -277,7 +276,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                             }
 
                             return Ok(Some(temp));
-                        }
+                        },
                         b'\r' => {
                             if self.buf_length == 1 {
                                 self.passing_byte = Some(b'\n');
@@ -289,14 +288,14 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                             }
 
                             return Ok(Some(temp));
-                        }
+                        },
                         _ => (),
                     }
 
                     self.buf_left_shift(1);
 
                     temp.push(e as char);
-                }
+                },
                 _ => {
                     while self.buf_length < width {
                         match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
@@ -313,7 +312,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                                 self.buf_left_shift(self.buf_length);
 
                                 return Ok(Some(temp));
-                            }
+                            },
                             Ok(c) => self.buf_length += c,
                             Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
                             Err(err) => return Err(err.into()),
@@ -327,14 +326,14 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                             temp.push_str(char_str);
 
                             self.buf_left_shift(width);
-                        }
+                        },
                         Err(_) => {
                             self.buf_left_shift(1);
 
                             temp.push(REPLACEMENT_CHARACTER);
-                        }
+                        },
                     }
-                }
+                },
             }
 
             if self.buf_length == 0 {
@@ -378,7 +377,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     self.buf_left_shift(1);
 
                     temp.push(e);
-                }
+                },
                 1 => {
                     match e {
                         b'\n' => {
@@ -392,7 +391,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                             }
 
                             return Ok(Some(temp));
-                        }
+                        },
                         b'\r' => {
                             if self.buf_length == 1 {
                                 self.passing_byte = Some(b'\n');
@@ -404,14 +403,14 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                             }
 
                             return Ok(Some(temp));
-                        }
+                        },
                         _ => (),
                     }
 
                     self.buf_left_shift(1);
 
                     temp.push(e);
-                }
+                },
                 _ => {
                     while self.buf_length < width {
                         match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
@@ -424,7 +423,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                                 self.buf_left_shift(self.buf_length);
 
                                 return Ok(Some(temp));
-                            }
+                            },
                             Ok(c) => self.buf_length += c,
                             Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
                             Err(err) => return Err(err.into()),
@@ -436,7 +435,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     temp.extend_from_slice(char_str_bytes);
 
                     self.buf_left_shift(width);
-                }
+                },
             }
 
             if self.buf_length == 0 {
@@ -481,7 +480,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     self.buf_left_shift(1);
 
                     c += 1;
-                }
+                },
                 1 => {
                     match e {
                         b'\n' => {
@@ -495,7 +494,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                             }
 
                             return Ok(Some(c));
-                        }
+                        },
                         b'\r' => {
                             if self.buf_length == 1 {
                                 self.passing_byte = Some(b'\n');
@@ -507,14 +506,14 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                             }
 
                             return Ok(Some(c));
-                        }
+                        },
                         _ => (),
                     }
 
                     self.buf_left_shift(1);
 
                     c += 1;
-                }
+                },
                 _ => {
                     while self.buf_length < width {
                         match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
@@ -524,7 +523,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                                 c += self.buf_length;
 
                                 return Ok(Some(c));
-                            }
+                            },
                             Ok(c) => self.buf_length += c,
                             Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
                             Err(err) => return Err(err.into()),
@@ -533,7 +532,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
 
                     self.buf_left_shift(width);
                     c += width;
-                }
+                },
             }
 
             if self.buf_length == 0 {
@@ -577,21 +576,21 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
             match width {
                 0 => {
                     break;
-                }
+                },
                 1 => {
                     if !is_whitespace_1(e) {
                         break;
                     }
 
                     self.buf_left_shift(1);
-                }
+                },
                 3 => {
                     while self.buf_length < width {
                         match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
                         {
                             Ok(0) => {
                                 return Ok(true);
-                            }
+                            },
                             Ok(c) => self.buf_length += c,
                             Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
                             Err(err) => return Err(err.into()),
@@ -607,10 +606,10 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     } else {
                         break;
                     }
-                }
+                },
                 _ => {
                     break;
-                }
+                },
             }
 
             if self.buf_length == 0 {
@@ -668,7 +667,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     self.buf_left_shift(1);
 
                     temp.push(REPLACEMENT_CHARACTER);
-                }
+                },
                 1 => {
                     if is_whitespace_1(e) {
                         return Ok(Some(temp));
@@ -677,7 +676,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     self.buf_left_shift(1);
 
                     temp.push(e as char);
-                }
+                },
                 3 => {
                     while self.buf_length < width {
                         match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
@@ -694,7 +693,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                                 self.buf_left_shift(self.buf_length);
 
                                 return Ok(Some(temp));
-                            }
+                            },
                             Ok(c) => self.buf_length += c,
                             Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
                             Err(err) => return Err(err.into()),
@@ -715,15 +714,15 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                                 temp.push_str(char_str);
 
                                 self.buf_left_shift(width);
-                            }
+                            },
                             Err(_) => {
                                 self.buf_left_shift(1);
 
                                 temp.push(REPLACEMENT_CHARACTER);
-                            }
+                            },
                         }
                     }
-                }
+                },
                 _ => {
                     while self.buf_length < width {
                         match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
@@ -740,7 +739,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                                 self.buf_left_shift(self.buf_length);
 
                                 return Ok(Some(temp));
-                            }
+                            },
                             Ok(c) => self.buf_length += c,
                             Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
                             Err(err) => return Err(err.into()),
@@ -754,14 +753,14 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                             temp.push_str(char_str);
 
                             self.buf_left_shift(width);
-                        }
+                        },
                         Err(_) => {
                             self.buf_left_shift(1);
 
                             temp.push(REPLACEMENT_CHARACTER);
-                        }
+                        },
                     }
-                }
+                },
             }
 
             if self.buf_length == 0 {
@@ -816,7 +815,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     self.buf_left_shift(1);
 
                     temp.push(e);
-                }
+                },
                 1 => {
                     if is_whitespace_1(e) {
                         return Ok(Some(temp));
@@ -825,7 +824,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     self.buf_left_shift(1);
 
                     temp.push(e);
-                }
+                },
                 3 => {
                     while self.buf_length < width {
                         match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
@@ -834,7 +833,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                                 self.buf_left_shift(self.buf_length);
 
                                 return Ok(Some(temp));
-                            }
+                            },
                             Ok(c) => self.buf_length += c,
                             Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
                             Err(err) => return Err(err.into()),
@@ -854,7 +853,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
 
                         self.buf_left_shift(width);
                     }
-                }
+                },
                 _ => {
                     while self.buf_length < width {
                         match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
@@ -867,7 +866,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                                 self.buf_left_shift(self.buf_length);
 
                                 return Ok(Some(temp));
-                            }
+                            },
                             Ok(c) => self.buf_length += c,
                             Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
                             Err(err) => return Err(err.into()),
@@ -879,7 +878,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     temp.extend_from_slice(char_str_bytes);
 
                     self.buf_left_shift(width);
-                }
+                },
             }
 
             if self.buf_length == 0 {
@@ -934,7 +933,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     self.buf_left_shift(1);
 
                     c += 1;
-                }
+                },
                 1 => {
                     if is_whitespace_1(e) {
                         return Ok(Some(c));
@@ -943,7 +942,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     self.buf_left_shift(1);
 
                     c += 1;
-                }
+                },
                 3 => {
                     while self.buf_length < width {
                         match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
@@ -953,7 +952,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                                 c += self.buf_length;
 
                                 return Ok(Some(c));
-                            }
+                            },
                             Ok(c) => self.buf_length += c,
                             Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
                             Err(err) => return Err(err.into()),
@@ -969,7 +968,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     } else {
                         self.buf_left_shift(width);
                     }
-                }
+                },
                 _ => {
                     while self.buf_length < width {
                         match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
@@ -979,7 +978,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                                 c += self.buf_length;
 
                                 return Ok(Some(c));
-                            }
+                            },
                             Ok(c) => self.buf_length += c,
                             Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
                             Err(err) => return Err(err.into()),
@@ -987,7 +986,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     }
 
                     self.buf_left_shift(width);
-                }
+                },
             }
 
             if self.buf_length == 0 {
@@ -1145,14 +1144,14 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                                     )
                                     .as_ref(),
                                 );
-                            }
+                            },
                             Ordering::Less => {
                                 let adjusted_temp_length = temp.len() - (boundary_length - p);
 
                                 unsafe {
                                     temp.as_mut_vec().set_len(adjusted_temp_length);
                                 }
-                            }
+                            },
                         }
 
                         self.buf_left_shift(p);
@@ -1177,7 +1176,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     Ordering::Greater => {
                         utf8_length -= width;
                         break;
-                    }
+                    },
                     Ordering::Less => (),
                 }
             }
@@ -1244,14 +1243,14 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                                     &self.buf
                                         [self.buf_offset..(self.buf_offset + p - boundary_length)],
                                 );
-                            }
+                            },
                             Ordering::Less => {
                                 let adjusted_temp_length = temp.len() - (boundary_length - p);
 
                                 unsafe {
                                     temp.set_len(adjusted_temp_length);
                                 }
-                            }
+                            },
                         }
 
                         self.buf_left_shift(p);
@@ -1276,7 +1275,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     Ordering::Greater => {
                         utf8_length -= width;
                         break;
-                    }
+                    },
                     Ordering::Less => (),
                 }
             }
@@ -1335,10 +1334,10 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                             Ordering::Equal => (),
                             Ordering::Greater => {
                                 c += p - boundary_length;
-                            }
+                            },
                             Ordering::Less => {
                                 c -= boundary_length - p;
-                            }
+                            },
                         }
 
                         self.buf_left_shift(p);
@@ -1363,7 +1362,7 @@ impl<R: Read, N: ArrayLength<u8> + IsGreaterOrEqual<U4, Output = True>> Scanner<
                     Ordering::Greater => {
                         utf8_length -= width;
                         break;
-                    }
+                    },
                     Ordering::Less => (),
                 }
             }

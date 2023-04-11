@@ -1,17 +1,18 @@
-use std::char::REPLACEMENT_CHARACTER;
-use std::str::{from_utf8, from_utf8_unchecked, FromStr};
+use std::{
+    char::REPLACEMENT_CHARACTER,
+    str::{from_utf8, from_utf8_unchecked, FromStr},
+};
 
 use utf8_width::*;
 
-use crate::whitespaces::*;
-use crate::ScannerError;
+use crate::{whitespaces::*, ScannerError};
 
 /// A simple text scanner which can in-memory-ly parse primitive types and strings using UTF-8 from a byte slice.
 #[derive(Debug)]
 pub struct ScannerU8Slice<'a> {
-    data: &'a [u8],
+    data:        &'a [u8],
     data_length: usize,
-    position: usize,
+    position:    usize,
 }
 
 impl<'a> ScannerU8Slice<'a> {
@@ -66,12 +67,12 @@ impl<'a> ScannerU8Slice<'a> {
                 self.position += 1;
 
                 Ok(Some(REPLACEMENT_CHARACTER))
-            }
+            },
             1 => {
                 self.position += 1;
 
                 Ok(Some(e as char))
-            }
+            },
             _ => {
                 if self.position + width > self.data_length {
                     self.position += 1;
@@ -85,15 +86,15 @@ impl<'a> ScannerU8Slice<'a> {
                             self.position += width;
 
                             Ok(char_str.chars().next())
-                        }
+                        },
                         Err(_) => {
                             self.position += 1;
 
                             Ok(Some(REPLACEMENT_CHARACTER))
-                        }
+                        },
                     }
                 }
-            }
+            },
         }
     }
 
@@ -124,7 +125,7 @@ impl<'a> ScannerU8Slice<'a> {
             match width {
                 0 => {
                     p += 1;
-                }
+                },
                 1 => {
                     match e {
                         b'\n' => {
@@ -137,7 +138,7 @@ impl<'a> ScannerU8Slice<'a> {
                             }
 
                             return Ok(Some(data));
-                        }
+                        },
                         b'\r' => {
                             let data = &self.data[self.position..p];
 
@@ -148,12 +149,12 @@ impl<'a> ScannerU8Slice<'a> {
                             }
 
                             return Ok(Some(data));
-                        }
+                        },
                         _ => (),
                     }
 
                     p += 1;
-                }
+                },
                 _ => {
                     if p + width >= self.data_length {
                         let data = &self.data[self.position..];
@@ -164,7 +165,7 @@ impl<'a> ScannerU8Slice<'a> {
                     } else {
                         p += width;
                     }
-                }
+                },
             }
 
             if p == self.data_length {
@@ -208,14 +209,14 @@ impl<'a> ScannerU8Slice<'a> {
             match width {
                 0 => {
                     break;
-                }
+                },
                 1 => {
                     if !is_whitespace_1(e) {
                         break;
                     }
 
                     self.position += 1;
-                }
+                },
                 3 => {
                     if self.position + width <= self.data_length
                         && is_whitespace_3(
@@ -228,10 +229,10 @@ impl<'a> ScannerU8Slice<'a> {
                     } else {
                         break;
                     }
-                }
+                },
                 _ => {
                     break;
-                }
+                },
             }
 
             if self.position == self.data_length {
@@ -275,7 +276,7 @@ impl<'a> ScannerU8Slice<'a> {
             match width {
                 0 => {
                     p += 1;
-                }
+                },
                 1 => {
                     if is_whitespace_1(e) {
                         let data = &self.data[self.position..p];
@@ -286,7 +287,7 @@ impl<'a> ScannerU8Slice<'a> {
                     }
 
                     p += 1;
-                }
+                },
                 3 => {
                     if self.position + width > self.data_length {
                         let data = &self.data[self.position..];
@@ -307,7 +308,7 @@ impl<'a> ScannerU8Slice<'a> {
                     } else {
                         p += 3;
                     }
-                }
+                },
                 _ => {
                     if self.position + width >= self.data_length {
                         let data = &self.data[self.position..];
@@ -318,7 +319,7 @@ impl<'a> ScannerU8Slice<'a> {
                     } else {
                         p += width;
                     }
-                }
+                },
             }
 
             if p == self.data_length {

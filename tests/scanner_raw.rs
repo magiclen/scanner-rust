@@ -38,7 +38,8 @@ fn next_line() {
     assert_eq!(None, sc.next_line_raw().unwrap());
     assert_eq!(None, sc.next_line_raw().unwrap());
 
-    let data = "123 中文好難。寝る\n123 中文好難。寝る\n\n123 中文好難。\r\r寝る\r \n123 中文好難。寝る\rHello, \nworld.";
+    let data = "123 中文好難。寝る\n123 中文好難。寝る\n\n123 中文好難。\r\r寝る\r \n123 \
+                中文好難。寝る\rHello, \nworld.";
 
     let mut sc = Scanner::new(data.as_bytes());
 

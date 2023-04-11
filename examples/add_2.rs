@@ -21,7 +21,7 @@ fn main() {
                 Err(_) => {
                     print!("Re-input a and b: ");
                     io::stdout().flush().unwrap();
-                }
+                },
             }
         }
     };
@@ -33,7 +33,7 @@ fn main() {
                 Err(_) => {
                     print!("Re-input b: ");
                     io::stdout().flush().unwrap();
-                }
+                },
             }
         }
     };

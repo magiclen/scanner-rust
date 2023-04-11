@@ -1,7 +1,9 @@
-use std::error::Error;
-use std::fmt::{self, Display, Formatter};
-use std::io::{self, ErrorKind};
-use std::num::{ParseFloatError, ParseIntError};
+use std::{
+    error::Error,
+    fmt::{self, Display, Formatter},
+    io::{self, ErrorKind},
+    num::{ParseFloatError, ParseIntError},
+};
 
 #[derive(Debug)]
 /// The possible errors of `Scanner`, `ScannerAscii`, `ScannerStr`, `ScannerU8Slice`, `ScannerU8SliceAscii` structs.

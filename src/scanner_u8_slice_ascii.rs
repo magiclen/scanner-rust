@@ -1,15 +1,16 @@
-use std::char::REPLACEMENT_CHARACTER;
-use std::str::{from_utf8_unchecked, FromStr};
+use std::{
+    char::REPLACEMENT_CHARACTER,
+    str::{from_utf8_unchecked, FromStr},
+};
 
-use crate::whitespaces::*;
-use crate::ScannerError;
+use crate::{whitespaces::*, ScannerError};
 
 /// A simple text scanner which can in-memory-ly parse primitive types and strings using ASCII from a byte slice.
 #[derive(Debug)]
 pub struct ScannerU8SliceAscii<'a> {
-    data: &'a [u8],
+    data:        &'a [u8],
     data_length: usize,
-    position: usize,
+    position:    usize,
 }
 
 impl<'a> ScannerU8SliceAscii<'a> {
@@ -99,7 +100,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
                     }
 
                     return Ok(Some(data));
-                }
+                },
                 b'\r' => {
                     let data = &self.data[self.position..p];
 
@@ -110,7 +111,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
                     }
 
                     return Ok(Some(data));
-                }
+                },
                 _ => (),
             }
 

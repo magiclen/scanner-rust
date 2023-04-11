@@ -81,7 +81,8 @@ fn next_lines() {
     assert_eq!(None, sc.next_line().unwrap());
     assert_eq!(None, sc.next_line().unwrap());
 
-    let data = "123 中文好難。寝る\n123 中文好難。寝る\n\n123 中文好難。\r\r寝る\r \n123 中文好難。寝る\rHello, \nworld.";
+    let data = "123 中文好難。寝る\n123 中文好難。寝る\n\n123 中文好難。\r\r寝る\r \n123 \
+                中文好難。寝る\rHello, \nworld.";
 
     let mut sc = ScannerU8Slice::new(data);
 

@@ -2,15 +2,14 @@ use std::str::FromStr;
 
 use utf8_width::*;
 
-use crate::whitespaces::*;
-use crate::ScannerError;
+use crate::{whitespaces::*, ScannerError};
 
 /// A simple text scanner which can in-memory-ly parse primitive types and strings using UTF-8 from a string slice.
 #[derive(Debug)]
 pub struct ScannerStr<'a> {
-    text: &'a str,
+    text:        &'a str,
     text_length: usize,
-    position: usize,
+    position:    usize,
 }
 
 impl<'a> ScannerStr<'a> {
@@ -67,14 +66,14 @@ impl<'a> ScannerStr<'a> {
                 self.position += 1;
 
                 Ok(Some(e as char))
-            }
+            },
             _ => {
                 let char_str = &self.text[self.position..(self.position + width)];
 
                 self.position += width;
 
                 Ok(char_str.chars().next())
-            }
+            },
         }
     }
 
@@ -117,7 +116,7 @@ impl<'a> ScannerStr<'a> {
                             }
 
                             return Ok(Some(text));
-                        }
+                        },
                         b'\r' => {
                             let text = &self.text[self.position..p];
 
@@ -128,15 +127,15 @@ impl<'a> ScannerStr<'a> {
                             }
 
                             return Ok(Some(text));
-                        }
+                        },
                         _ => (),
                     }
 
                     p += 1;
-                }
+                },
                 _ => {
                     p += width;
-                }
+                },
             }
 
             if p == self.text_length {
@@ -186,7 +185,7 @@ impl<'a> ScannerStr<'a> {
                     }
 
                     self.position += 1;
-                }
+                },
                 3 => {
                     if !is_whitespace_3(
                         data[self.position],
@@ -197,10 +196,10 @@ impl<'a> ScannerStr<'a> {
                     }
 
                     self.position += 3;
-                }
+                },
                 _ => {
                     break;
-                }
+                },
             }
 
             if self.position == self.text_length {
@@ -254,7 +253,7 @@ impl<'a> ScannerStr<'a> {
                     }
 
                     p += 1;
-                }
+                },
                 3 => {
                     if is_whitespace_3(
                         data[self.position],
@@ -269,10 +268,10 @@ impl<'a> ScannerStr<'a> {
                     } else {
                         p += 3;
                     }
-                }
+                },
                 _ => {
                     p += width;
-                }
+                },
             }
 
             if p == self.text_length {
