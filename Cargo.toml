@@ -9,7 +9,6 @@ homepage = "https://magiclen.org/scanner-rust"
 keywords = ["scanner", "java", "read", "stdin", "stream"]
 categories = ["parser-implementations"]
 description = "Simple text scanners which can parse primitive types and strings using UTF-8 or ASCII."
-readme = "README.md"
 license = "MIT"
 include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
 
