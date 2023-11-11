@@ -1,9 +1,9 @@
 [package]
 name = "scanner-rust"
-version = "2.0.16"
+version = "2.0.17"
 authors = ["Magic Len <len@magiclen.org>"]
 edition = "2021"
-rust-version = "1.56"
+rust-version = "1.65"
 repository = "https://github.com/magiclen/scanner-rust"
 homepage = "https://magiclen.org/scanner-rust"
 keywords = ["scanner", "java", "read", "stdin", "stream"]
@@ -13,7 +13,7 @@ license = "MIT"
 include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
 
 [dependencies]
-generic-array = "0.14"
+generic-array = "1"
 utf8-width = "0.1"
 
 [dependencies.educe]
