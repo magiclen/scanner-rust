@@ -1,9 +1,9 @@
 [package]
 name = "scanner-rust"
-version = "2.0.17"
+version = "2.0.18"
 authors = ["Magic Len <len@magiclen.org>"]
 edition = "2021"
-rust-version = "1.65"
+rust-version = "1.68"
 repository = "https://github.com/magiclen/scanner-rust"
 homepage = "https://magiclen.org/scanner-rust"
 keywords = ["scanner", "java", "read", "stdin", "stream"]
@@ -17,6 +17,6 @@ generic-array = "1"
 utf8-width = "0.1"
 
 [dependencies.educe]
-version = ">=0.4"
+version = "0.5"
 features = ["Debug"]
 default-features = false

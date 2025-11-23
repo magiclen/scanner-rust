@@ -24,7 +24,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
     /// let mut sc = ScannerU8SliceAscii::new(b"123 456");
     /// ```
     #[inline]
-    pub fn new<D: ?Sized + AsRef<[u8]>>(data: &D) -> ScannerU8SliceAscii {
+    pub fn new<D: ?Sized + AsRef<[u8]>>(data: &D) -> ScannerU8SliceAscii<'_> {
         let data = data.as_ref();
 
         ScannerU8SliceAscii {

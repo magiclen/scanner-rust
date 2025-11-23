@@ -23,7 +23,7 @@ impl<'a> ScannerStr<'a> {
     /// let mut sc = ScannerStr::new("123 456");
     /// ```
     #[inline]
-    pub fn new<S: ?Sized + AsRef<str>>(text: &S) -> ScannerStr {
+    pub fn new<S: ?Sized + AsRef<str>>(text: &S) -> ScannerStr<'_> {
         let text = text.as_ref();
 
         ScannerStr {

@@ -2,9 +2,9 @@ use std::{
     char::REPLACEMENT_CHARACTER,
     cmp::Ordering,
     fs::File,
-    intrinsics::copy,
     io::{ErrorKind, Read},
     path::Path,
+    ptr::copy,
     str::{from_utf8, from_utf8_unchecked, FromStr},
 };
 
