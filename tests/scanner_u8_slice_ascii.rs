@@ -207,6 +207,16 @@ fn next() {
 }
 
 #[test]
+fn next_until_boundary_at_end() {
+    let data = "abcd".as_bytes();
+
+    let mut sc = ScannerU8SliceAscii::new(data);
+
+    assert_eq!(Some("ab".as_bytes()), sc.next_until("cd").unwrap());
+    assert_eq!(None, sc.next().unwrap());
+}
+
+#[test]
 fn next_u8() {
     let data = "64 128";
 

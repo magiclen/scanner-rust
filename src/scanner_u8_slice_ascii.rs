@@ -63,7 +63,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         if e >= 128 { Ok(Some(REPLACEMENT_CHARACTER)) } else { Ok(Some(e as char)) }
     }
 
-    /// Read the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next line but not include the trailing line character (or line characters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// use scanner_rust::ScannerU8SliceAscii;
@@ -242,7 +242,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         Ok(Some(data))
     }
 
-    /// Drop the next N bytes. If there is nothing to read, it will return `Ok(None)`. If there are something to read, it will return `Ok(Some(i))`. The `i` is the length of the actually dropped bytes.
+    /// Drop the next N bytes. If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length of the actually dropped bytes.
     ///
     /// ```rust
     /// use scanner_rust::ScannerU8SliceAscii;
@@ -297,7 +297,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         let boundary = boundary.as_ref();
         let boundary_length = boundary.len();
 
-        if boundary_length == 0 || boundary_length >= self.data_length - self.position {
+        if boundary_length == 0 || boundary_length > self.data_length - self.position {
             let data = &self.data[self.position..];
 
             self.position = self.data_length;
@@ -305,7 +305,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
             return Ok(Some(data));
         }
 
-        for i in self.position..(self.data_length - boundary_length) {
+        for i in self.position..=(self.data_length - boundary_length) {
             let e = i + boundary_length;
 
             if &self.data[i..e] == boundary {

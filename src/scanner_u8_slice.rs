@@ -98,7 +98,7 @@ impl<'a> ScannerU8Slice<'a> {
         }
     }
 
-    /// Read the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next line but not include the trailing line character (or line characters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// use scanner_rust::ScannerU8Slice;
@@ -285,17 +285,13 @@ impl<'a> ScannerU8Slice<'a> {
                     p += 1;
                 },
                 3 => {
-                    if self.position + width > self.data_length {
+                    if p + width > self.data_length {
                         let data = &self.data[self.position..];
 
                         self.position = self.data_length;
 
                         return Ok(Some(data));
-                    } else if is_whitespace_3(
-                        self.data[self.position],
-                        self.data[self.position + 1],
-                        self.data[self.position + 2],
-                    ) {
+                    } else if is_whitespace_3(self.data[p], self.data[p + 1], self.data[p + 2]) {
                         let data = &self.data[self.position..p];
 
                         self.position = p;
@@ -306,7 +302,7 @@ impl<'a> ScannerU8Slice<'a> {
                     }
                 },
                 _ => {
-                    if self.position + width >= self.data_length {
+                    if p + width >= self.data_length {
                         let data = &self.data[self.position..];
 
                         self.position = self.data_length;
@@ -363,7 +359,7 @@ impl<'a> ScannerU8Slice<'a> {
         Ok(Some(data))
     }
 
-    /// Drop the next N bytes. If there is nothing to read, it will return `Ok(None)`. If there are something to read, it will return `Ok(Some(i))`. The `i` is the length of the actually dropped bytes.
+    /// Drop the next N bytes. If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length of the actually dropped bytes.
     ///
     /// ```rust
     /// use scanner_rust::ScannerU8Slice;
@@ -418,7 +414,7 @@ impl<'a> ScannerU8Slice<'a> {
         let boundary = boundary.as_ref();
         let boundary_length = boundary.len();
 
-        if boundary_length == 0 || boundary_length >= self.data_length - self.position {
+        if boundary_length == 0 || boundary_length > self.data_length - self.position {
             let data = &self.data[self.position..];
 
             self.position = self.data_length;
@@ -426,7 +422,7 @@ impl<'a> ScannerU8Slice<'a> {
             return Ok(Some(data));
         }
 
-        for i in self.position..(self.data_length - boundary_length) {
+        for i in self.position..=(self.data_length - boundary_length) {
             let e = i + boundary_length;
 
             if &self.data[i..e] == boundary {

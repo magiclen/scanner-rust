@@ -227,6 +227,29 @@ fn next() {
 }
 
 #[test]
+fn next_unicode_whitespace() {
+    let data = "a\u{3000}b 中\u{3000}文";
+
+    let mut sc = ScannerStr::new(data);
+
+    assert_eq!(Some("a"), sc.next().unwrap());
+    assert_eq!(Some("b"), sc.next().unwrap());
+    assert_eq!(Some("中"), sc.next().unwrap());
+    assert_eq!(Some("文"), sc.next().unwrap());
+    assert_eq!(None, sc.next().unwrap());
+}
+
+#[test]
+fn next_until_boundary_at_end() {
+    let data = "abcd";
+
+    let mut sc = ScannerStr::new(data);
+
+    assert_eq!(Some("ab"), sc.next_until("cd").unwrap());
+    assert_eq!(None, sc.next().unwrap());
+}
+
+#[test]
 fn next_u8() {
     let data = "64 128";
 

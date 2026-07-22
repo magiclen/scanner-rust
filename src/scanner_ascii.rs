@@ -98,7 +98,7 @@ impl<const N: usize> ScannerAscii<File, N> {
 
 impl<R: Read, const N: usize> ScannerAscii<R, N> {
     #[inline]
-    fn buf_align_to_frond_end(&mut self) {
+    fn buf_align_to_front_end(&mut self) {
         unsafe {
             copy(self.buf.as_ptr().add(self.buf_offset), self.buf.as_mut_ptr(), self.buf_length);
         }
@@ -113,15 +113,18 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         self.buf_offset += distance;
 
         if self.buf_offset >= N - 4 {
-            self.buf_align_to_frond_end();
+            self.buf_align_to_front_end();
         }
 
         self.buf_length -= distance;
     }
 
     /// Left shift (if necessary) the buffer to remove bytes from the start of the buffer. Typically, you should use this after `peek`ing the buffer.
+    ///
+    /// # Safety
+    ///
+    /// `number_of_bytes` must not be greater than the length of the currently buffered data (the length of the slice returned by `peek`). A larger value underflows the internal buffer length and causes out-of-bounds access afterwards.
     #[inline]
-    #[allow(clippy::missing_safety_doc)]
     pub unsafe fn remove_heading_bytes_from_buffer(&mut self, number_of_bytes: usize) {
         self.buf_left_shift(number_of_bytes);
     }
@@ -191,7 +194,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         if e >= 128 { Ok(Some(REPLACEMENT_CHARACTER)) } else { Ok(Some(e as char)) }
     }
 
-    /// Read the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next line but not include the trailing line character (or line characters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// use scanner_rust::ScannerAscii;
@@ -261,7 +264,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         }
     }
 
-    /// Read the next line include the tailing line character (or line chracters like `CrLf`(`\r\n`)) without validating ASCII. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next line but not include the trailing line character (or line characters like `CrLf`(`\r\n`)) without validating ASCII. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// use scanner_rust::ScannerAscii;
@@ -327,7 +330,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         }
     }
 
-    /// Drop the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`. If there are something to read, it will return `Ok(Some(i))`. The `i` is the length of the dropped line.
+    /// Drop the next line but not include the trailing line character (or line characters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length of the dropped line.
     ///
     /// ```rust
     /// use scanner_rust::ScannerAscii;
@@ -547,7 +550,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         }
     }
 
-    /// Drop the next token separated by whitespaces. If there is nothing to read, it will return `Ok(None)`. If there are something to read, it will return `Ok(Some(i))`. The `i` is the length of the dropped line.
+    /// Drop the next token separated by whitespaces. If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length of the dropped token.
     ///
     /// ```rust
     /// use scanner_rust::ScannerAscii;
@@ -648,7 +651,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         Ok(Some(temp))
     }
 
-    /// Drop the next N bytes. If there is nothing to read, it will return `Ok(None)`. If there are something to read, it will return `Ok(Some(i))`. The `i` is the length of the actually dropped bytes.
+    /// Drop the next N bytes. If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length of the actually dropped bytes.
     ///
     /// ```rust
     /// use scanner_rust::ScannerAscii;
@@ -725,7 +728,8 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         loop {
             let mut p = 0;
 
-            while p < self.buf_length {
+            // An empty boundary never matches, so keep reading until the end.
+            while boundary_length != 0 && p < self.buf_length {
                 if self.buf[self.buf_offset + p] == boundary[b] {
                     b += 1;
                     p += 1;
@@ -810,7 +814,8 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         loop {
             let mut p = 0;
 
-            while p < self.buf_length {
+            // An empty boundary never matches, so keep reading until the end.
+            while boundary_length != 0 && p < self.buf_length {
                 if self.buf[self.buf_offset + p] == boundary[b] {
                     b += 1;
                     p += 1;
@@ -887,7 +892,8 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         loop {
             let mut p = 0;
 
-            while p < self.buf_length {
+            // An empty boundary never matches, so keep reading until the end.
+            while boundary_length != 0 && p < self.buf_length {
                 if self.buf[self.buf_offset + p] == boundary[b] {
                     b += 1;
                     p += 1;
@@ -929,8 +935,8 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
 }
 
 impl<R: Read, const N: usize> ScannerAscii<R, N> {
-    /// Try to fill up the buffer and return the immutable byte slice of the valid buffered data.
-    /// If the `shift` parameter is set to `false`, the guaranteed minimum data length of the result is **32** (if the unread data is long enough), otherwise it is `BUFFER_SIZE`.
+    /// Fill up the buffer as much as possible and return an immutable slice of all the currently buffered (unread) data.
+    /// Reading stops at the end of the stream or when the buffer is full. If `shift` is `true`, the buffered data is first moved to the front of the buffer so that up to the whole buffer size can be filled; if `false`, only the space after the current read position is filled.
     ///
     /// ```rust
     /// use scanner_rust::ScannerAscii;
@@ -942,7 +948,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
     #[inline]
     pub fn peek(&mut self, shift: bool) -> Result<&[u8], ScannerError> {
         if shift {
-            self.buf_align_to_frond_end();
+            self.buf_align_to_front_end();
         }
 
         loop {
@@ -1314,8 +1320,8 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
     ///
     /// let mut sc = ScannerAscii::new("1 2".as_bytes());
     ///
-    /// assert_eq!(Some(1), sc.next_usize_until(" ").unwrap());
-    /// assert_eq!(Some(2), sc.next_usize_until(" ").unwrap());
+    /// assert_eq!(Some(1), sc.next_i8_until(" ").unwrap());
+    /// assert_eq!(Some(2), sc.next_i8_until(" ").unwrap());
     /// ```
     #[inline]
     pub fn next_i8_until<D: ?Sized + AsRef<[u8]>>(

@@ -77,7 +77,7 @@ impl<'a> ScannerStr<'a> {
         }
     }
 
-    /// Read the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next line but not include the trailing line character (or line characters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// use scanner_rust::ScannerStr;
@@ -255,11 +255,7 @@ impl<'a> ScannerStr<'a> {
                     p += 1;
                 },
                 3 => {
-                    if is_whitespace_3(
-                        data[self.position],
-                        data[self.position + 1],
-                        data[self.position + 2],
-                    ) {
+                    if is_whitespace_3(data[p], data[p + 1], data[p + 2]) {
                         let text = &self.text[self.position..p];
 
                         self.position = p;
@@ -361,7 +357,7 @@ impl<'a> ScannerStr<'a> {
         let boundary = boundary.as_ref().as_bytes();
         let boundary_length = boundary.len();
 
-        if boundary_length == 0 || boundary_length >= self.text_length - self.position {
+        if boundary_length == 0 || boundary_length > self.text_length - self.position {
             let text = &self.text[self.position..];
 
             self.position = self.text_length;
@@ -371,7 +367,7 @@ impl<'a> ScannerStr<'a> {
 
         let data = self.text.as_bytes();
 
-        for i in self.position..(self.text_length - boundary_length) {
+        for i in self.position..=(self.text_length - boundary_length) {
             let e = i + boundary_length;
 
             if &data[i..e] == boundary {

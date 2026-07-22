@@ -227,6 +227,39 @@ fn next() {
 }
 
 #[test]
+fn next_unicode_whitespace() {
+    let data = "a\u{3000}b 中\u{3000}文".as_bytes();
+
+    let mut sc = ScannerU8Slice::new(data);
+
+    assert_eq!(Some("a".as_bytes()), sc.next().unwrap());
+    assert_eq!(Some("b".as_bytes()), sc.next().unwrap());
+    assert_eq!(Some("中".as_bytes()), sc.next().unwrap());
+    assert_eq!(Some("文".as_bytes()), sc.next().unwrap());
+    assert_eq!(None, sc.next().unwrap());
+}
+
+#[test]
+fn next_truncated_multibyte() {
+    let data: &[u8] = &[0x61, 0x62, 0xE3, 0x80];
+
+    let mut sc = ScannerU8Slice::new(data);
+
+    assert_eq!(Some(data), sc.next().unwrap());
+    assert_eq!(None, sc.next().unwrap());
+}
+
+#[test]
+fn next_until_boundary_at_end() {
+    let data = "abcd".as_bytes();
+
+    let mut sc = ScannerU8Slice::new(data);
+
+    assert_eq!(Some("ab".as_bytes()), sc.next_until("cd").unwrap());
+    assert_eq!(None, sc.next().unwrap());
+}
+
+#[test]
 fn next_u8() {
     let data = "64 128";
 
