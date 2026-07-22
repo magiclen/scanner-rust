@@ -132,6 +132,22 @@ fn next_lines_crlf() {
 }
 
 #[test]
+fn next_lines_crlf_across_buffer_refills() {
+    // A buffer smaller than the input splits the CrLf/LfCr pair across refills, exercising the passing_byte path.
+    let mut sc: Scanner<_, 4> = Scanner::new2("123\r\n456".as_bytes());
+
+    assert_eq!(Some("123".into()), sc.next_line().unwrap());
+    assert_eq!(Some("456".into()), sc.next_line().unwrap());
+    assert_eq!(None, sc.next_line().unwrap());
+
+    let mut sc: Scanner<_, 4> = Scanner::new2("123\n\r456".as_bytes());
+
+    assert_eq!(Some("123".into()), sc.next_line().unwrap());
+    assert_eq!(Some("456".into()), sc.next_line().unwrap());
+    assert_eq!(None, sc.next_line().unwrap());
+}
+
+#[test]
 fn next_lines_chars() {
     let data = "Hello, 123\n中文好難。寝る\n\n";
 

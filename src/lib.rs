@@ -34,7 +34,7 @@ let b = {
         match sc.next_isize() {
             Ok(i) => break i.unwrap_or(0),
             Err(_) => {
-                print!("Re-input a and b: ");
+                print!("Re-input b: ");
                 io::stdout().flush().unwrap();
             }
         }
@@ -74,7 +74,7 @@ assert_eq!(Some(' '), sc.next_char().unwrap());
 assert_eq!(true, sc.skip_whitespaces().unwrap());
 assert_eq!(Some('c'), sc.next_char().unwrap());
 assert_eq!(Some("中文字"), sc.next_line().unwrap());
-assert_eq!(Some("\tHello world!".into()), sc.next_line().unwrap());
+assert_eq!(Some("\tHello world!"), sc.next_line().unwrap());
 assert_eq!(None, sc.next_line().unwrap());
 ```
 
