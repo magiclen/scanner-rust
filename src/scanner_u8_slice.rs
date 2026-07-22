@@ -217,18 +217,14 @@ impl<'a> ScannerU8Slice<'a> {
 
                     self.position += 1;
                 },
-                3 => {
-                    if self.position + width <= self.data_length
-                        && is_whitespace_3(
-                            self.data[self.position],
-                            self.data[self.position + 1],
-                            self.data[self.position + 2],
-                        )
-                    {
-                        self.position += 3;
-                    } else {
-                        break;
-                    }
+                3 if self.position + width <= self.data_length
+                    && is_whitespace_3(
+                        self.data[self.position],
+                        self.data[self.position + 1],
+                        self.data[self.position + 2],
+                    ) =>
+                {
+                    self.position += 3;
                 },
                 _ => {
                     break;
