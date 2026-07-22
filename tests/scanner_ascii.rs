@@ -345,3 +345,30 @@ fn next_f64() {
     assert_eq!(Some(2.0), sc.next_f64().unwrap());
     assert_eq!(Some(-123456.987654), sc.next_f64().unwrap());
 }
+
+#[test]
+fn next_until() {
+    let data = "123 456\r\n789 \n\n ab ";
+
+    let mut sc = ScannerAscii::new(data.as_bytes());
+
+    assert_eq!(Some("123".into()), sc.next_until(" ").unwrap());
+    assert_eq!(Some("456\r".into()), sc.next_until("\n").unwrap());
+    assert_eq!(Some("78".into()), sc.next_until("9 ").unwrap());
+    assert_eq!(Some("\n\n ab ".into()), sc.next_until("kk").unwrap());
+    assert_eq!(None, sc.next().unwrap());
+}
+
+#[test]
+fn next_until_overlapping_boundary() {
+    // A self-overlapping boundary must still be found (regression against a non-backtracking matcher).
+    let mut sc = ScannerAscii::new("aaab".as_bytes());
+
+    assert_eq!(Some("a".into()), sc.next_until("aab").unwrap());
+    assert_eq!(None, sc.next().unwrap());
+
+    let mut sc = ScannerAscii::new("a\r\r\nb".as_bytes());
+
+    assert_eq!(Some("a\r".into()), sc.next_until("\r\n").unwrap());
+    assert_eq!(Some(1), sc.drop_next_until("kk").unwrap());
+}

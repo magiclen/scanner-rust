@@ -1,6 +1,5 @@
 use std::{
     char::REPLACEMENT_CHARACTER,
-    cmp::Ordering,
     fs::File,
     io::{ErrorKind, Read},
     path::Path,
@@ -11,7 +10,7 @@ use std::{
 use educe::Educe;
 use utf8_width::*;
 
-use crate::{ScannerError, whitespaces::*};
+use crate::{ScannerError, kmp::compute_lps, whitespaces::*};
 
 /// A simple text scanner which can parse primitive types and strings using UTF-8.
 #[derive(Educe)]
@@ -1118,90 +1117,11 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         &mut self,
         boundary: S,
     ) -> Result<Option<String>, ScannerError> {
-        if !self.passing_read()? {
-            return Ok(None);
-        }
+        let boundary = boundary.as_ref();
 
-        let boundary = boundary.as_ref().as_bytes();
-        let boundary_length = boundary.len();
-        let mut temp = String::new();
-
-        let mut b = 0;
-
-        loop {
-            let mut p = 0;
-
-            // An empty boundary never matches, so keep reading until the end.
-            while boundary_length != 0 && p < self.buf_length {
-                if self.buf[self.buf_offset + p] == boundary[b] {
-                    b += 1;
-                    p += 1;
-
-                    if b == boundary_length {
-                        match p.cmp(&boundary_length) {
-                            Ordering::Equal => (),
-                            Ordering::Greater => {
-                                temp.push_str(
-                                    String::from_utf8_lossy(
-                                        &self.buf[self.buf_offset
-                                            ..(self.buf_offset + p - boundary_length)],
-                                    )
-                                    .as_ref(),
-                                );
-                            },
-                            Ordering::Less => {
-                                let adjusted_temp_length = temp.len() - (boundary_length - p);
-
-                                unsafe {
-                                    temp.as_mut_vec().set_len(adjusted_temp_length);
-                                }
-                            },
-                        }
-
-                        self.buf_left_shift(p);
-
-                        return Ok(Some(temp));
-                    }
-                } else {
-                    b = 0;
-                    p += 1;
-                }
-            }
-
-            let mut utf8_length = 0;
-
-            loop {
-                let width = get_width(self.buf[self.buf_offset + utf8_length]).max(1);
-
-                utf8_length += width;
-
-                match utf8_length.cmp(&self.buf_length) {
-                    Ordering::Equal => break,
-                    Ordering::Greater => {
-                        utf8_length -= width;
-                        break;
-                    },
-                    Ordering::Less => (),
-                }
-            }
-
-            temp.push_str(
-                String::from_utf8_lossy(
-                    &self.buf[self.buf_offset..(self.buf_offset + utf8_length)],
-                )
-                .as_ref(),
-            );
-
-            self.buf_left_shift(utf8_length);
-
-            let size = self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])?;
-
-            if size == 0 {
-                return Ok(Some(temp));
-            }
-
-            self.buf_length += size;
-        }
+        Ok(self
+            .next_until_raw(boundary.as_bytes())?
+            .map(|bytes| String::from_utf8_lossy(&bytes).into_owned()))
     }
 
     /// Read the next data until it reaches a specific boundary without fully validating UTF-8. If there is nothing to read, it will return `Ok(None)`.
@@ -1229,67 +1149,61 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         let boundary_length = boundary.len();
         let mut temp = Vec::new();
 
+        // An empty boundary never matches, so keep reading until the end.
+        if boundary_length == 0 {
+            loop {
+                temp.extend_from_slice(
+                    &self.buf[self.buf_offset..(self.buf_offset + self.buf_length)],
+                );
+
+                self.buf_left_shift(self.buf_length);
+
+                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+
+                if size == 0 {
+                    return Ok(Some(temp));
+                }
+
+                self.buf_length += size;
+            }
+        }
+
+        // Match the boundary across buffer refills with KMP so a mismatch never re-reads bytes.
+        let lps = compute_lps(boundary);
         let mut b = 0;
 
         loop {
-            let mut p = 0;
+            let mut i = 0;
 
-            // An empty boundary never matches, so keep reading until the end.
-            while boundary_length != 0 && p < self.buf_length {
-                if self.buf[self.buf_offset + p] == boundary[b] {
+            while i < self.buf_length {
+                let e = self.buf[self.buf_offset + i];
+
+                while b > 0 && e != boundary[b] {
+                    b = lps[b - 1];
+                }
+
+                if e == boundary[b] {
                     b += 1;
-                    p += 1;
+                }
 
-                    if b == boundary_length {
-                        match p.cmp(&boundary_length) {
-                            Ordering::Equal => (),
-                            Ordering::Greater => {
-                                temp.extend_from_slice(
-                                    &self.buf
-                                        [self.buf_offset..(self.buf_offset + p - boundary_length)],
-                                );
-                            },
-                            Ordering::Less => {
-                                let adjusted_temp_length = temp.len() - (boundary_length - p);
+                i += 1;
 
-                                unsafe {
-                                    temp.set_len(adjusted_temp_length);
-                                }
-                            },
-                        }
+                if b == boundary_length {
+                    // The matched boundary is the last `boundary_length` bytes seen so far.
+                    temp.extend_from_slice(&self.buf[self.buf_offset..(self.buf_offset + i)]);
+                    temp.truncate(temp.len() - boundary_length);
 
-                        self.buf_left_shift(p);
+                    self.buf_left_shift(i);
 
-                        return Ok(Some(temp));
-                    }
-                } else {
-                    b = 0;
-                    p += 1;
+                    return Ok(Some(temp));
                 }
             }
 
-            let mut utf8_length = 0;
+            temp.extend_from_slice(&self.buf[self.buf_offset..(self.buf_offset + self.buf_length)]);
 
-            loop {
-                let width = get_width(self.buf[self.buf_offset + utf8_length]).max(1);
+            self.buf_left_shift(self.buf_length);
 
-                utf8_length += width;
-
-                match utf8_length.cmp(&self.buf_length) {
-                    Ordering::Equal => break,
-                    Ordering::Greater => {
-                        utf8_length -= width;
-                        break;
-                    },
-                    Ordering::Less => (),
-                }
-            }
-
-            temp.extend_from_slice(&self.buf[self.buf_offset..(self.buf_offset + utf8_length)]);
-
-            self.buf_left_shift(utf8_length);
-
-            let size = self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])?;
+            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
 
             if size == 0 {
                 return Ok(Some(temp));
@@ -1324,60 +1238,55 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         let boundary_length = boundary.len();
         let mut c = 0;
 
+        // An empty boundary never matches, so keep reading until the end.
+        if boundary_length == 0 {
+            loop {
+                c += self.buf_length;
+
+                self.buf_left_shift(self.buf_length);
+
+                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+
+                if size == 0 {
+                    return Ok(Some(c));
+                }
+
+                self.buf_length += size;
+            }
+        }
+
+        // Match the boundary across buffer refills with KMP so a mismatch never re-reads bytes.
+        let lps = compute_lps(boundary);
         let mut b = 0;
 
         loop {
-            let mut p = 0;
+            let mut i = 0;
 
-            // An empty boundary never matches, so keep reading until the end.
-            while boundary_length != 0 && p < self.buf_length {
-                if self.buf[self.buf_offset + p] == boundary[b] {
+            while i < self.buf_length {
+                let e = self.buf[self.buf_offset + i];
+
+                while b > 0 && e != boundary[b] {
+                    b = lps[b - 1];
+                }
+
+                if e == boundary[b] {
                     b += 1;
-                    p += 1;
+                }
 
-                    if b == boundary_length {
-                        match p.cmp(&boundary_length) {
-                            Ordering::Equal => (),
-                            Ordering::Greater => {
-                                c += p - boundary_length;
-                            },
-                            Ordering::Less => {
-                                c -= boundary_length - p;
-                            },
-                        }
+                i += 1;
 
-                        self.buf_left_shift(p);
+                if b == boundary_length {
+                    self.buf_left_shift(i);
 
-                        return Ok(Some(c));
-                    }
-                } else {
-                    b = 0;
-                    p += 1;
+                    return Ok(Some(c + i - boundary_length));
                 }
             }
 
-            let mut utf8_length = 0;
+            c += self.buf_length;
 
-            loop {
-                let width = get_width(self.buf[self.buf_offset + utf8_length]).max(1);
+            self.buf_left_shift(self.buf_length);
 
-                utf8_length += width;
-
-                match utf8_length.cmp(&self.buf_length) {
-                    Ordering::Equal => break,
-                    Ordering::Greater => {
-                        utf8_length -= width;
-                        break;
-                    },
-                    Ordering::Less => (),
-                }
-            }
-
-            c += utf8_length;
-
-            self.buf_left_shift(utf8_length);
-
-            let size = self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])?;
+            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
 
             if size == 0 {
                 return Ok(Some(c));
@@ -1427,6 +1336,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         let result = self.next_raw()?;
 
         match result {
+            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
             Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
             None => Ok(None),
         }
@@ -1654,6 +1564,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         let result = self.next_until_raw(boundary)?;
 
         match result {
+            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
             Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
             None => Ok(None),
         }

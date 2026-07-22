@@ -333,6 +333,23 @@ impl<'a> ScannerU8SliceAscii<'a> {
         let result = self.next()?;
 
         match result {
+            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
+            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
+            None => Ok(None),
+        }
+    }
+
+    #[inline]
+    fn next_until_parse<T: FromStr, D: ?Sized + AsRef<[u8]>>(
+        &mut self,
+        boundary: &D,
+    ) -> Result<Option<T>, ScannerError>
+    where
+        ScannerError: From<<T as FromStr>::Err>, {
+        let result = self.next_until(boundary)?;
+
+        match result {
+            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
             Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
             None => Ok(None),
         }
@@ -565,12 +582,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<u8>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `u16` value. If there is nothing to read, it will return `Ok(None)`.
@@ -588,12 +600,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<u16>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `u32` value. If there is nothing to read, it will return `Ok(None)`.
@@ -611,12 +618,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<u32>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `u64` value. If there is nothing to read, it will return `Ok(None)`.
@@ -634,12 +636,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<u64>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `u128` value. If there is nothing to read, it will return `Ok(None)`.
@@ -657,12 +654,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<u128>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `usize` value. If there is nothing to read, it will return `Ok(None)`.
@@ -680,12 +672,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<usize>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `i8` value. If there is nothing to read, it will return `Ok(None)`.
@@ -703,12 +690,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<i8>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `i16` value. If there is nothing to read, it will return `Ok(None)`.
@@ -726,12 +708,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<i16>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `i32` value. If there is nothing to read, it will return `Ok(None)`.
@@ -749,12 +726,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<i32>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `i64` value. If there is nothing to read, it will return `Ok(None)`.
@@ -772,12 +744,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<i64>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `i128` value. If there is nothing to read, it will return `Ok(None)`.
@@ -795,12 +762,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<i128>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `isize` value. If there is nothing to read, it will return `Ok(None)`.
@@ -818,12 +780,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<isize>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `f32` value. If there is nothing to read, it will return `Ok(None)`.
@@ -841,12 +798,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<f32>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 
     /// Read the next text until it reaches a specific boundary and parse it to a `f64` value. If there is nothing to read, it will return `Ok(None)`.
@@ -864,12 +816,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         &mut self,
         boundary: &D,
     ) -> Result<Option<f64>, ScannerError> {
-        let result = self.next_until(boundary)?;
-
-        match result {
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
-            None => Ok(None),
-        }
+        self.next_until_parse(boundary)
     }
 }
 

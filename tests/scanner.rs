@@ -365,3 +365,59 @@ fn next_f64() {
     assert_eq!(Some(2.0), sc.next_f64().unwrap());
     assert_eq!(Some(-123456.987654), sc.next_f64().unwrap());
 }
+
+#[test]
+fn next_until() {
+    let data = "123 456\r\n789 \n\n 中文 ";
+
+    let mut sc = Scanner::new(data.as_bytes());
+
+    assert_eq!(Some("123".into()), sc.next_until(" ").unwrap());
+    assert_eq!(Some("456\r".into()), sc.next_until("\n").unwrap());
+    assert_eq!(Some("78".into()), sc.next_until("9 ").unwrap());
+    assert_eq!(Some("\n\n 中文 ".into()), sc.next_until("kk").unwrap());
+    assert_eq!(None, sc.next().unwrap());
+}
+
+#[test]
+fn next_until_overlapping_boundary() {
+    // A self-overlapping boundary must still be found (regression against a non-backtracking matcher).
+    let mut sc = Scanner::new("aaba".as_bytes());
+
+    assert_eq!(Some("a".into()), sc.next_until("aba").unwrap());
+    assert_eq!(None, sc.next().unwrap());
+
+    let mut sc = Scanner::new("aaab".as_bytes());
+
+    assert_eq!(Some("a".into()), sc.next_until("aab").unwrap());
+    assert_eq!(None, sc.next().unwrap());
+
+    let mut sc = Scanner::new("a\r\r\nb".as_bytes());
+
+    assert_eq!(Some("a\r".into()), sc.next_until("\r\n").unwrap());
+    assert_eq!(Some("b".into()), sc.next_until("kk").unwrap());
+}
+
+#[test]
+fn next_until_across_buffer_refills() {
+    // A buffer smaller than the boundary forces matching across refills.
+    let mut sc: Scanner<_, 4> = Scanner::new2("xxbound_yy".as_bytes());
+
+    assert_eq!(Some("xx".into()), sc.next_until("bound_").unwrap());
+    assert_eq!(Some("yy".into()), sc.next_until("kk").unwrap());
+}
+
+#[test]
+fn drop_next_until() {
+    let data = "123 456\r\n789 \n\n 中文 ";
+
+    let mut sc = Scanner::new(data.as_bytes());
+
+    assert_eq!(Some(7), sc.drop_next_until("\r\n").unwrap());
+    assert_eq!(Some("789 ".into()), sc.next_line().unwrap());
+
+    // A self-overlapping boundary must still be found.
+    let mut sc = Scanner::new("aaab".as_bytes());
+
+    assert_eq!(Some(1), sc.drop_next_until("aab").unwrap());
+}

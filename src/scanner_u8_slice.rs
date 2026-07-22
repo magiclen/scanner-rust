@@ -450,6 +450,7 @@ impl<'a> ScannerU8Slice<'a> {
         let result = self.next()?;
 
         match result {
+            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
             Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
             None => Ok(None),
         }
@@ -677,6 +678,7 @@ impl<'a> ScannerU8Slice<'a> {
         let result = self.next_until(boundary)?;
 
         match result {
+            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
             Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
             None => Ok(None),
         }

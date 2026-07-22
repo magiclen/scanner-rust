@@ -302,7 +302,7 @@ impl<'a> ScannerStr<'a> {
     pub fn next_str(
         &mut self,
         max_number_of_characters: usize,
-    ) -> Result<Option<&str>, ScannerError> {
+    ) -> Result<Option<&'a str>, ScannerError> {
         if self.position == self.text_length {
             return Ok(None);
         }

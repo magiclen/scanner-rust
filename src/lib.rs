@@ -102,6 +102,7 @@ assert_eq!(None, sc.next_line().unwrap());
 
 */
 
+mod kmp;
 mod scanner;
 mod scanner_ascii;
 mod scanner_error;
