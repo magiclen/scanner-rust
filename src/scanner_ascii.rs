@@ -5,25 +5,20 @@ use std::{
     io::Read,
     path::Path,
     ptr::copy,
-    str::{from_utf8_unchecked, FromStr},
+    str::{FromStr, from_utf8_unchecked},
 };
 
-use crate::{
-    generic_array::{
-        typenum::{IsGreaterOrEqual, True, U256, U4},
-        ArrayLength, GenericArray,
-    },
-    whitespaces::*,
-    ScannerError,
-};
+use educe::Educe;
+
+use crate::{ScannerError, whitespaces::*};
 
 /// A simple text scanner which can parse primitive types and strings using ASCII.
 #[derive(Educe)]
 #[educe(Debug)]
-pub struct ScannerAscii<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True> = U256> {
+pub struct ScannerAscii<R: Read, const N: usize = 256> {
     #[educe(Debug(ignore))]
     reader:       R,
-    buf:          GenericArray<u8, N>,
+    buf:          [u8; N],
     buf_length:   usize,
     buf_offset:   usize,
     passing_byte: Option<u8>,
@@ -45,21 +40,24 @@ impl<R: Read> ScannerAscii<R> {
     }
 }
 
-impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii<R, N> {
+impl<R: Read, const N: usize> ScannerAscii<R, N> {
     /// Create a scanner from a reader and set the buffer size via generics.
     ///
     /// ```rust
     /// use std::io;
     ///
-    /// use scanner_rust::{generic_array::typenum::U1024, ScannerAscii};
+    /// use scanner_rust::ScannerAscii;
     ///
-    /// let mut sc: ScannerAscii<_, U1024> = ScannerAscii::new2(io::stdin());
+    /// let mut sc: ScannerAscii<_, 1024> = ScannerAscii::new2(io::stdin());
     /// ```
     #[inline]
     pub fn new2(reader: R) -> ScannerAscii<R, N> {
+        // The buffer must be at least 4 bytes to hold a full UTF-8 character.
+        const { assert!(N >= 4, "the buffer size N must be at least 4 bytes") };
+
         ScannerAscii {
             reader,
-            buf: GenericArray::default(),
+            buf: [0u8; N],
             buf_length: 0,
             buf_offset: 0,
             passing_byte: None,
@@ -81,13 +79,13 @@ impl ScannerAscii<File> {
     }
 }
 
-impl<N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii<File, N> {
+impl<const N: usize> ScannerAscii<File, N> {
     /// Create a scanner to read data from a file by its path and set the buffer size via generics.
     ///
     /// ```rust
-    /// use scanner_rust::{generic_array::typenum::U1024, ScannerAscii};
+    /// use scanner_rust::ScannerAscii;
     ///
-    /// let mut sc: ScannerAscii<_, U1024> =
+    /// let mut sc: ScannerAscii<_, 1024> =
     ///     ScannerAscii::scan_path2("Cargo.toml").unwrap();
     /// ```
     #[inline]
@@ -98,7 +96,7 @@ impl<N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii<File, N>
     }
 }
 
-impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii<R, N> {
+impl<R: Read, const N: usize> ScannerAscii<R, N> {
     #[inline]
     fn buf_align_to_frond_end(&mut self) {
         unsafe {
@@ -114,7 +112,7 @@ impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii
 
         self.buf_offset += distance;
 
-        if self.buf_offset >= N::USIZE - 4 {
+        if self.buf_offset >= N - 4 {
             self.buf_align_to_frond_end();
         }
 
@@ -138,24 +136,24 @@ impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii
 
             self.buf_length += size;
 
-            if let Some(passing_byte) = self.passing_byte.take() {
-                if self.buf[self.buf_offset] == passing_byte {
-                    self.buf_left_shift(1);
+            if let Some(passing_byte) = self.passing_byte.take()
+                && self.buf[self.buf_offset] == passing_byte
+            {
+                self.buf_left_shift(1);
 
-                    return if size == 1 {
-                        let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                return if size == 1 {
+                    let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
 
-                        if size == 0 {
-                            Ok(false)
-                        } else {
-                            self.buf_length += size;
-
-                            Ok(true)
-                        }
+                    if size == 0 {
+                        Ok(false)
                     } else {
+                        self.buf_length += size;
+
                         Ok(true)
-                    };
-                }
+                    }
+                } else {
+                    Ok(true)
+                };
             }
 
             Ok(true)
@@ -165,7 +163,7 @@ impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii
     }
 }
 
-impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii<R, N> {
+impl<R: Read, const N: usize> ScannerAscii<R, N> {
     /// Read the next char. If the data is not a correct char, it will return a `Ok(Some(REPLACEMENT_CHARACTER))` which is �. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
@@ -190,11 +188,7 @@ impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii
 
         self.buf_left_shift(1);
 
-        if e >= 128 {
-            Ok(Some(REPLACEMENT_CHARACTER))
-        } else {
-            Ok(Some(e as char))
-        }
+        if e >= 128 { Ok(Some(REPLACEMENT_CHARACTER)) } else { Ok(Some(e as char)) }
     }
 
     /// Read the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.
@@ -401,7 +395,7 @@ impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii
     }
 }
 
-impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii<R, N> {
+impl<R: Read, const N: usize> ScannerAscii<R, N> {
     /// Skip the next whitespaces (`javaWhitespace`). If there is nothing to read, it will return `Ok(false)`.
     ///
     /// ```rust
@@ -605,7 +599,7 @@ impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii
     }
 }
 
-impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii<R, N> {
+impl<R: Read, const N: usize> ScannerAscii<R, N> {
     /// Read the next bytes. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
@@ -700,7 +694,7 @@ impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii
     }
 }
 
-impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii<R, N> {
+impl<R: Read, const N: usize> ScannerAscii<R, N> {
     /// Read the next text until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
@@ -934,7 +928,7 @@ impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii
     }
 }
 
-impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii<R, N> {
+impl<R: Read, const N: usize> ScannerAscii<R, N> {
     /// Try to fill up the buffer and return the immutable byte slice of the valid buffered data.
     /// If the `shift` parameter is set to `false`, the guaranteed minimum data length of the result is **32** (if the unread data is long enough), otherwise it is `BUFFER_SIZE`.
     ///
@@ -965,7 +959,7 @@ impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii
     }
 }
 
-impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii<R, N> {
+impl<R: Read, const N: usize> ScannerAscii<R, N> {
     #[inline]
     fn next_raw_parse<T: FromStr>(&mut self) -> Result<Option<T>, ScannerError>
     where
@@ -1189,7 +1183,7 @@ impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii
     }
 }
 
-impl<R: Read, N: ArrayLength + IsGreaterOrEqual<U4, Output = True>> ScannerAscii<R, N> {
+impl<R: Read, const N: usize> ScannerAscii<R, N> {
     #[inline]
     fn next_until_raw_parse<T: FromStr, D: ?Sized + AsRef<[u8]>>(
         &mut self,

@@ -1,11 +1,11 @@
 use std::{
     char::REPLACEMENT_CHARACTER,
-    str::{from_utf8, from_utf8_unchecked, FromStr},
+    str::{FromStr, from_utf8, from_utf8_unchecked},
 };
 
 use utf8_width::*;
 
-use crate::{whitespaces::*, ScannerError};
+use crate::{ScannerError, whitespaces::*};
 
 /// A simple text scanner which can in-memory-ly parse primitive types and strings using UTF-8 from a byte slice.
 #[derive(Debug)]

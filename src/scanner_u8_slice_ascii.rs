@@ -1,9 +1,9 @@
 use std::{
     char::REPLACEMENT_CHARACTER,
-    str::{from_utf8_unchecked, FromStr},
+    str::{FromStr, from_utf8_unchecked},
 };
 
-use crate::{whitespaces::*, ScannerError};
+use crate::{ScannerError, whitespaces::*};
 
 /// A simple text scanner which can in-memory-ly parse primitive types and strings using ASCII from a byte slice.
 #[derive(Debug)]
@@ -60,11 +60,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
 
         self.position += 1;
 
-        if e >= 128 {
-            Ok(Some(REPLACEMENT_CHARACTER))
-        } else {
-            Ok(Some(e as char))
-        }
+        if e >= 128 { Ok(Some(REPLACEMENT_CHARACTER)) } else { Ok(Some(e as char)) }
     }
 
     /// Read the next line but not include the tailing line character (or line chracters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`.

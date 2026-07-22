@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use utf8_width::*;
 
-use crate::{whitespaces::*, ScannerError};
+use crate::{ScannerError, whitespaces::*};
 
 /// A simple text scanner which can in-memory-ly parse primitive types and strings using UTF-8 from a string slice.
 #[derive(Debug)]

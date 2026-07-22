@@ -51,10 +51,9 @@ The default buffer size is 256 bytes. If you want to change that, you can use th
 For example, to change the buffer size to 64 bytes,
 
 ```rust
-use scanner_rust::generic_array::typenum::U64;
 use scanner_rust::Scanner;
 
-let mut sc: Scanner<_, U64> = Scanner::scan_path2("Cargo.toml").unwrap();
+let mut sc: Scanner<_, 64> = Scanner::scan_path2("Cargo.toml").unwrap();
 ```
 
 ### Scan a string slice (`&str`)
@@ -102,11 +101,6 @@ assert_eq!(None, sc.next_line().unwrap());
 ```
 
 */
-
-pub extern crate generic_array;
-
-#[macro_use]
-extern crate educe;
 
 mod scanner;
 mod scanner_ascii;
