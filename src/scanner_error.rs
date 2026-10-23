@@ -45,4 +45,14 @@ impl Display for ScannerError {
     }
 }
 
-impl Error for ScannerError {}
+impl Error for ScannerError {
+    #[inline]
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        // `Display` already shows the inner error, so forward its source to avoid printing the same message twice.
+        match self {
+            ScannerError::IOError(err) => err.source(),
+            ScannerError::ParseIntError(err) => err.source(),
+            ScannerError::ParseFloatError(err) => err.source(),
+        }
+    }
+}

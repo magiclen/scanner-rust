@@ -372,3 +372,21 @@ fn next_until_overlapping_boundary() {
     assert_eq!(Some("a\r".into()), sc.next_until("\r\n").unwrap());
     assert_eq!(Some(1), sc.drop_next_until("kk").unwrap());
 }
+
+#[test]
+fn next_until_unicode_across_buffer_refills() {
+    let mut sc: ScannerAscii<_, 4> = ScannerAscii::new2("café界中文界é".as_bytes());
+
+    assert_eq!(Some("café".into()), sc.next_until("界").unwrap());
+    assert_eq!(Some("中文".into()), sc.next_until("界").unwrap());
+    assert_eq!(Some("é".into()), sc.next_until("界").unwrap());
+    assert_eq!(None, sc.next_until("界").unwrap());
+}
+
+#[test]
+fn next_until_lossy_utf8() {
+    let mut sc = ScannerAscii::new(&[0xE2, 0x82, b'|', b'z'][..]);
+
+    assert_eq!(Some("�".into()), sc.next_until("|").unwrap());
+    assert_eq!(Some("z".into()), sc.next_until("|").unwrap());
+}

@@ -103,12 +103,14 @@ assert_eq!(None, sc.next_line().unwrap());
 */
 
 mod kmp;
+mod reader;
 mod scanner;
 mod scanner_ascii;
 mod scanner_error;
 mod scanner_str;
 mod scanner_u8_slice;
 mod scanner_u8_slice_ascii;
+mod text;
 mod whitespaces;
 
 pub use scanner::*;

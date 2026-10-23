@@ -398,3 +398,16 @@ fn next_f64() {
     assert_eq!(Some(2.0), sc.next_f64().unwrap());
     assert_eq!(Some(-123456.987654), sc.next_f64().unwrap());
 }
+
+#[test]
+fn separators_after_invalid_bytes() {
+    let data: &[u8] = &[0xE3, b' ', b'x', b'\r', b'\n', 0xF0, b'\n', b'y'];
+    let mut sc = ScannerU8Slice::new(data);
+
+    assert_eq!(Some(&[0xE3][..]), sc.next().unwrap());
+    assert_eq!(Some(&b"x"[..]), sc.next().unwrap());
+    assert_eq!(Some(&b""[..]), sc.next_line().unwrap());
+    assert_eq!(Some(&[0xF0][..]), sc.next_line().unwrap());
+    assert_eq!(Some(&b"y"[..]), sc.next_line().unwrap());
+    assert_eq!(None, sc.next_line().unwrap());
+}

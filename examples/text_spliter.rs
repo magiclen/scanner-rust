@@ -68,6 +68,10 @@ fn main() -> Result<(), ScannerError> {
         match line {
             Some(line) => {
                 if line.is_empty() {
+                    if s.is_empty() {
+                        continue;
+                    }
+
                     let file_name = format!("{}.txt", counter);
                     let file_path = Path::join(&directory, file_name);
 

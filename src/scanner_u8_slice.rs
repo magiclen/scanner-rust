@@ -1,11 +1,11 @@
 use std::{
     char::REPLACEMENT_CHARACTER,
-    str::{FromStr, from_utf8, from_utf8_unchecked},
+    str::{FromStr, from_utf8},
 };
 
 use utf8_width::*;
 
-use crate::{ScannerError, whitespaces::*};
+use crate::{ScannerError, text::numeric_text, whitespaces::*};
 
 /// A simple text scanner which can in-memory-ly parse primitive types and strings using UTF-8 from a byte slice.
 #[derive(Debug)]
@@ -120,53 +120,33 @@ impl<'a> ScannerU8Slice<'a> {
         loop {
             let e = self.data[p];
 
-            let width = get_width(e);
+            match e {
+                b'\n' => {
+                    let data = &self.data[self.position..p];
 
-            match width {
-                0 => {
-                    p += 1;
-                },
-                1 => {
-                    match e {
-                        b'\n' => {
-                            let data = &self.data[self.position..p];
-
-                            if p + 1 < self.data_length && self.data[p + 1] == b'\r' {
-                                self.position = p + 2;
-                            } else {
-                                self.position = p + 1;
-                            }
-
-                            return Ok(Some(data));
-                        },
-                        b'\r' => {
-                            let data = &self.data[self.position..p];
-
-                            if p + 1 < self.data_length && self.data[p + 1] == b'\n' {
-                                self.position = p + 2;
-                            } else {
-                                self.position = p + 1;
-                            }
-
-                            return Ok(Some(data));
-                        },
-                        _ => (),
-                    }
-
-                    p += 1;
-                },
-                _ => {
-                    if p + width >= self.data_length {
-                        let data = &self.data[self.position..];
-
-                        self.position = self.data_length;
-
-                        return Ok(Some(data));
+                    if p + 1 < self.data_length && self.data[p + 1] == b'\r' {
+                        self.position = p + 2;
                     } else {
-                        p += width;
+                        self.position = p + 1;
                     }
+
+                    return Ok(Some(data));
                 },
+                b'\r' => {
+                    let data = &self.data[self.position..p];
+
+                    if p + 1 < self.data_length && self.data[p + 1] == b'\n' {
+                        self.position = p + 2;
+                    } else {
+                        self.position = p + 1;
+                    }
+
+                    return Ok(Some(data));
+                },
+                _ => (),
             }
+
+            p += 1;
 
             if p == self.data_length {
                 break;
@@ -254,68 +234,31 @@ impl<'a> ScannerU8Slice<'a> {
     /// ```
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<&'a [u8]>, ScannerError> {
-        if !self.skip_whitespaces()? {
-            return Ok(None);
-        }
-
-        if self.position == self.data_length {
+        if !self.skip_whitespaces()? || self.position == self.data_length {
             return Ok(None);
         }
 
         let mut p = self.position;
 
-        loop {
+        while p < self.data_length {
             let e = self.data[p];
-
             let width = get_width(e);
 
-            match width {
-                0 => {
-                    p += 1;
-                },
-                1 => {
-                    if is_whitespace_1(e) {
-                        let data = &self.data[self.position..p];
-
-                        self.position = p;
-
-                        return Ok(Some(data));
-                    }
-
-                    p += 1;
-                },
-                3 => {
-                    if p + width > self.data_length {
-                        let data = &self.data[self.position..];
-
-                        self.position = self.data_length;
-
-                        return Ok(Some(data));
-                    } else if is_whitespace_3(self.data[p], self.data[p + 1], self.data[p + 2]) {
-                        let data = &self.data[self.position..p];
-
-                        self.position = p;
-
-                        return Ok(Some(data));
-                    } else {
-                        p += 3;
-                    }
-                },
-                _ => {
-                    if p + width >= self.data_length {
-                        let data = &self.data[self.position..];
-
-                        self.position = self.data_length;
-
-                        return Ok(Some(data));
-                    } else {
-                        p += width;
-                    }
-                },
+            if is_whitespace_1(e)
+                || (width == 3
+                    && self.data_length - p >= 3
+                    && is_whitespace_3(self.data[p], self.data[p + 1], self.data[p + 2]))
+            {
+                break;
             }
 
-            if p == self.data_length {
-                break;
+            if width > 1
+                && self.data_length - p >= width
+                && self.data[(p + 1)..(p + width)].iter().all(|byte| byte & 0xC0 == 0x80)
+            {
+                p += width;
+            } else {
+                p += 1;
             }
         }
 
@@ -450,8 +393,7 @@ impl<'a> ScannerU8Slice<'a> {
         let result = self.next()?;
 
         match result {
-            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
+            Some(s) => Ok(Some(numeric_text(s).parse()?)),
             None => Ok(None),
         }
     }
@@ -468,8 +410,7 @@ impl<'a> ScannerU8Slice<'a> {
         let result = self.next_until(boundary)?;
 
         match result {
-            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
+            Some(s) => Ok(Some(numeric_text(s).parse()?)),
             None => Ok(None),
         }
     }

@@ -1,16 +1,22 @@
 use std::{
     char::REPLACEMENT_CHARACTER,
     fs::File,
-    io::{ErrorKind, Read},
+    io::Read,
     path::Path,
     ptr::copy,
-    str::{FromStr, from_utf8, from_utf8_unchecked},
+    str::{FromStr, from_utf8},
 };
 
 use educe::Educe;
 use utf8_width::*;
 
-use crate::{ScannerError, kmp::compute_lps, whitespaces::*};
+use crate::{
+    ScannerError,
+    kmp::compute_lps,
+    reader::read,
+    text::{into_string_lossy, numeric_text},
+    whitespaces::*,
+};
 
 /// A simple text scanner which can parse primitive types and strings using UTF-8.
 #[derive(Educe)]
@@ -98,8 +104,13 @@ impl<const N: usize> Scanner<File, N> {
 impl<R: Read, const N: usize> Scanner<R, N> {
     #[inline]
     fn buf_align_to_front_end(&mut self) {
+        debug_assert!(self.buf_offset <= N && self.buf_length <= N - self.buf_offset);
+
+        let buffer = self.buf.as_mut_ptr();
+
+        // SAFETY: Both ranges stay within the buffer, and both pointers come from the same mutable pointer.
         unsafe {
-            copy(self.buf.as_ptr().add(self.buf_offset), self.buf.as_mut_ptr(), self.buf_length);
+            copy(buffer.add(self.buf_offset), buffer, self.buf_length);
         }
 
         self.buf_offset = 0;
@@ -110,12 +121,11 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         debug_assert!(self.buf_length >= distance);
 
         self.buf_offset += distance;
+        self.buf_length -= distance;
 
         if self.buf_offset >= N - 4 {
             self.buf_align_to_front_end();
         }
-
-        self.buf_length -= distance;
     }
 
     /// Left shift (if necessary) the buffer to remove bytes from the start of the buffer. Typically, you should use this after `peek`ing the buffer.
@@ -128,9 +138,77 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         self.buf_left_shift(number_of_bytes);
     }
 
+    #[inline]
+    fn buf_skip_line(&mut self, line_length: usize) {
+        let ending = if self.buf[self.buf_offset + line_length] == b'\n' { b'\r' } else { b'\n' };
+        let mut consumed = line_length + 1;
+
+        if consumed == self.buf_length {
+            // Defer the second byte when a line ending is split across reads.
+            self.passing_byte = Some(ending);
+        } else if self.buf[self.buf_offset + consumed] == ending {
+            consumed += 1;
+        }
+
+        self.buf_left_shift(consumed);
+    }
+
+    #[inline]
+    fn buf_fill_char(&mut self, width: usize) -> Result<usize, ScannerError> {
+        while self.buf_length < width {
+            let size =
+                read(&mut self.reader, &mut self.buf[(self.buf_offset + self.buf_length)..])?;
+
+            if size == 0 {
+                // A sequence cut off by the end of data is handled one byte at a time.
+                return Ok(1);
+            }
+
+            self.buf_length += size;
+        }
+
+        Ok(width)
+    }
+
+    #[inline]
+    fn buf_raw_char_width(&mut self) -> Result<usize, ScannerError> {
+        let width = get_width(self.buf[self.buf_offset]);
+
+        if width <= 1 || self.buf_fill_char(width)? == 1 {
+            return Ok(1);
+        }
+
+        // A broken sequence must not skip over a whitespace byte.
+        if self.buf[(self.buf_offset + 1)..(self.buf_offset + width)]
+            .iter()
+            .all(|byte| byte & 0xC0 == 0x80)
+        {
+            Ok(width)
+        } else {
+            Ok(1)
+        }
+    }
+
+    // Force inlining because this runs for every multi-byte character in hot loops.
+    #[inline(always)]
+    fn buf_push_char(&mut self, temp: &mut String, width: usize) {
+        match from_utf8(&self.buf[self.buf_offset..(self.buf_offset + width)]) {
+            Ok(char_str) => {
+                temp.push_str(char_str);
+
+                self.buf_left_shift(width);
+            },
+            Err(_) => {
+                temp.push(REPLACEMENT_CHARACTER);
+
+                self.buf_left_shift(1);
+            },
+        }
+    }
+
     fn passing_read(&mut self) -> Result<bool, ScannerError> {
         if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+            let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
             if size == 0 {
                 return Ok(false);
@@ -144,7 +222,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
                 self.buf_left_shift(1);
 
                 return if size == 1 {
-                    let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                    let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                     if size == 0 {
                         Ok(false)
@@ -203,14 +281,16 @@ impl<R: Read, const N: usize> Scanner<R, N> {
             },
             _ => {
                 while self.buf_length < width {
-                    match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..]) {
+                    match read(
+                        &mut self.reader,
+                        &mut self.buf[(self.buf_offset + self.buf_length)..],
+                    ) {
                         Ok(0) => {
                             self.buf_left_shift(1);
 
                             return Ok(Some(REPLACEMENT_CHARACTER));
                         },
                         Ok(c) => self.buf_length += c,
-                        Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
                         Err(err) => return Err(err.into()),
                     }
                 }
@@ -266,32 +346,10 @@ impl<R: Read, const N: usize> Scanner<R, N> {
                     temp.push(REPLACEMENT_CHARACTER);
                 },
                 1 => {
-                    match e {
-                        b'\n' => {
-                            if self.buf_length == 1 {
-                                self.passing_byte = Some(b'\r');
-                                self.buf_left_shift(1);
-                            } else if self.buf[self.buf_offset + 1] == b'\r' {
-                                self.buf_left_shift(2);
-                            } else {
-                                self.buf_left_shift(1);
-                            }
+                    if e == b'\n' || e == b'\r' {
+                        self.buf_skip_line(0);
 
-                            return Ok(Some(temp));
-                        },
-                        b'\r' => {
-                            if self.buf_length == 1 {
-                                self.passing_byte = Some(b'\n');
-                                self.buf_left_shift(1);
-                            } else if self.buf[self.buf_offset + 1] == b'\n' {
-                                self.buf_left_shift(2);
-                            } else {
-                                self.buf_left_shift(1);
-                            }
-
-                            return Ok(Some(temp));
-                        },
-                        _ => (),
+                        return Ok(Some(temp));
                     }
 
                     self.buf_left_shift(1);
@@ -299,47 +357,14 @@ impl<R: Read, const N: usize> Scanner<R, N> {
                     temp.push(e as char);
                 },
                 _ => {
-                    while self.buf_length < width {
-                        match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
-                        {
-                            Ok(0) => {
-                                temp.push_str(
-                                    String::from_utf8_lossy(
-                                        &self.buf
-                                            [self.buf_offset..(self.buf_offset + self.buf_length)],
-                                    )
-                                    .as_ref(),
-                                );
+                    let width = self.buf_fill_char(width)?;
 
-                                self.buf_left_shift(self.buf_length);
-
-                                return Ok(Some(temp));
-                            },
-                            Ok(c) => self.buf_length += c,
-                            Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
-                            Err(err) => return Err(err.into()),
-                        }
-                    }
-
-                    let char_str_bytes = &self.buf[self.buf_offset..(self.buf_offset + width)];
-
-                    match from_utf8(char_str_bytes) {
-                        Ok(char_str) => {
-                            temp.push_str(char_str);
-
-                            self.buf_left_shift(width);
-                        },
-                        Err(_) => {
-                            self.buf_left_shift(1);
-
-                            temp.push(REPLACEMENT_CHARACTER);
-                        },
-                    }
+                    self.buf_push_char(&mut temp, width);
                 },
             }
 
             if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(temp));
@@ -370,84 +395,21 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         let mut temp = Vec::new();
 
         loop {
-            let e = self.buf[self.buf_offset];
+            let data = &self.buf[self.buf_offset..(self.buf_offset + self.buf_length)];
 
-            let width = get_width(e);
+            if let Some(line_length) = data.iter().position(|&byte| byte == b'\n' || byte == b'\r')
+            {
+                temp.extend_from_slice(&data[..line_length]);
+                self.buf_skip_line(line_length);
 
-            match width {
-                0 => {
-                    self.buf_left_shift(1);
-
-                    temp.push(e);
-                },
-                1 => {
-                    match e {
-                        b'\n' => {
-                            if self.buf_length == 1 {
-                                self.passing_byte = Some(b'\r');
-                                self.buf_left_shift(1);
-                            } else if self.buf[self.buf_offset + 1] == b'\r' {
-                                self.buf_left_shift(2);
-                            } else {
-                                self.buf_left_shift(1);
-                            }
-
-                            return Ok(Some(temp));
-                        },
-                        b'\r' => {
-                            if self.buf_length == 1 {
-                                self.passing_byte = Some(b'\n');
-                                self.buf_left_shift(1);
-                            } else if self.buf[self.buf_offset + 1] == b'\n' {
-                                self.buf_left_shift(2);
-                            } else {
-                                self.buf_left_shift(1);
-                            }
-
-                            return Ok(Some(temp));
-                        },
-                        _ => (),
-                    }
-
-                    self.buf_left_shift(1);
-
-                    temp.push(e);
-                },
-                _ => {
-                    while self.buf_length < width {
-                        match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
-                        {
-                            Ok(0) => {
-                                temp.extend_from_slice(
-                                    &self.buf[self.buf_offset..(self.buf_offset + self.buf_length)],
-                                );
-
-                                self.buf_left_shift(self.buf_length);
-
-                                return Ok(Some(temp));
-                            },
-                            Ok(c) => self.buf_length += c,
-                            Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
-                            Err(err) => return Err(err.into()),
-                        }
-                    }
-
-                    let char_str_bytes = &self.buf[self.buf_offset..(self.buf_offset + width)];
-
-                    temp.extend_from_slice(char_str_bytes);
-
-                    self.buf_left_shift(width);
-                },
+                return Ok(Some(temp));
             }
 
-            if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+            temp.extend_from_slice(data);
+            self.buf_left_shift(self.buf_length);
 
-                if size == 0 {
-                    return Ok(Some(temp));
-                }
-
-                self.buf_length += size;
+            if !self.passing_read()? {
+                return Ok(Some(temp));
             }
         }
     }
@@ -473,78 +435,20 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         let mut c = 0;
 
         loop {
-            let e = self.buf[self.buf_offset];
+            let data = &self.buf[self.buf_offset..(self.buf_offset + self.buf_length)];
 
-            let width = get_width(e);
+            if let Some(line_length) = data.iter().position(|&byte| byte == b'\n' || byte == b'\r')
+            {
+                self.buf_skip_line(line_length);
 
-            match width {
-                0 => {
-                    self.buf_left_shift(1);
-
-                    c += 1;
-                },
-                1 => {
-                    match e {
-                        b'\n' => {
-                            if self.buf_length == 1 {
-                                self.passing_byte = Some(b'\r');
-                                self.buf_left_shift(1);
-                            } else if self.buf[self.buf_offset + 1] == b'\r' {
-                                self.buf_left_shift(2);
-                            } else {
-                                self.buf_left_shift(1);
-                            }
-
-                            return Ok(Some(c));
-                        },
-                        b'\r' => {
-                            if self.buf_length == 1 {
-                                self.passing_byte = Some(b'\n');
-                                self.buf_left_shift(1);
-                            } else if self.buf[self.buf_offset + 1] == b'\n' {
-                                self.buf_left_shift(2);
-                            } else {
-                                self.buf_left_shift(1);
-                            }
-
-                            return Ok(Some(c));
-                        },
-                        _ => (),
-                    }
-
-                    self.buf_left_shift(1);
-
-                    c += 1;
-                },
-                _ => {
-                    while self.buf_length < width {
-                        match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
-                        {
-                            Ok(0) => {
-                                self.buf_left_shift(self.buf_length);
-                                c += self.buf_length;
-
-                                return Ok(Some(c));
-                            },
-                            Ok(c) => self.buf_length += c,
-                            Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
-                            Err(err) => return Err(err.into()),
-                        }
-                    }
-
-                    self.buf_left_shift(width);
-                    c += width;
-                },
+                return Ok(Some(c + line_length));
             }
 
-            if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+            c += self.buf_length;
+            self.buf_left_shift(self.buf_length);
 
-                if size == 0 {
-                    return Ok(Some(c));
-                }
-
-                self.buf_length += size;
+            if !self.passing_read()? {
+                return Ok(Some(c));
             }
         }
     }
@@ -588,13 +492,14 @@ impl<R: Read, const N: usize> Scanner<R, N> {
                 },
                 3 => {
                     while self.buf_length < width {
-                        match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
-                        {
+                        match read(
+                            &mut self.reader,
+                            &mut self.buf[(self.buf_offset + self.buf_length)..],
+                        ) {
                             Ok(0) => {
                                 return Ok(true);
                             },
                             Ok(c) => self.buf_length += c,
-                            Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
                             Err(err) => return Err(err.into()),
                         }
                     }
@@ -615,7 +520,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
             }
 
             if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(true);
@@ -643,18 +548,8 @@ impl<R: Read, const N: usize> Scanner<R, N> {
     /// ```
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<String>, ScannerError> {
-        if !self.skip_whitespaces()? {
+        if !self.skip_whitespaces()? || self.buf_length == 0 {
             return Ok(None);
-        }
-
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
         }
 
         let mut temp = String::new();
@@ -679,94 +574,25 @@ impl<R: Read, const N: usize> Scanner<R, N> {
 
                     temp.push(e as char);
                 },
-                3 => {
-                    while self.buf_length < width {
-                        match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
-                        {
-                            Ok(0) => {
-                                temp.push_str(
-                                    String::from_utf8_lossy(
-                                        &self.buf
-                                            [self.buf_offset..(self.buf_offset + self.buf_length)],
-                                    )
-                                    .as_ref(),
-                                );
-
-                                self.buf_left_shift(self.buf_length);
-
-                                return Ok(Some(temp));
-                            },
-                            Ok(c) => self.buf_length += c,
-                            Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
-                            Err(err) => return Err(err.into()),
-                        }
-                    }
-
-                    if is_whitespace_3(
-                        self.buf[self.buf_offset],
-                        self.buf[self.buf_offset + 1],
-                        self.buf[self.buf_offset + 2],
-                    ) {
-                        return Ok(Some(temp));
-                    } else {
-                        let char_str_bytes = &self.buf[self.buf_offset..(self.buf_offset + width)];
-
-                        match from_utf8(char_str_bytes) {
-                            Ok(char_str) => {
-                                temp.push_str(char_str);
-
-                                self.buf_left_shift(width);
-                            },
-                            Err(_) => {
-                                self.buf_left_shift(1);
-
-                                temp.push(REPLACEMENT_CHARACTER);
-                            },
-                        }
-                    }
-                },
                 _ => {
-                    while self.buf_length < width {
-                        match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
-                        {
-                            Ok(0) => {
-                                temp.push_str(
-                                    String::from_utf8_lossy(
-                                        &self.buf
-                                            [self.buf_offset..(self.buf_offset + self.buf_length)],
-                                    )
-                                    .as_ref(),
-                                );
+                    let width = self.buf_fill_char(width)?;
 
-                                self.buf_left_shift(self.buf_length);
-
-                                return Ok(Some(temp));
-                            },
-                            Ok(c) => self.buf_length += c,
-                            Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
-                            Err(err) => return Err(err.into()),
-                        }
+                    if width == 3
+                        && is_whitespace_3(
+                            self.buf[self.buf_offset],
+                            self.buf[self.buf_offset + 1],
+                            self.buf[self.buf_offset + 2],
+                        )
+                    {
+                        return Ok(Some(temp));
                     }
 
-                    let char_str_bytes = &self.buf[self.buf_offset..(self.buf_offset + width)];
-
-                    match from_utf8(char_str_bytes) {
-                        Ok(char_str) => {
-                            temp.push_str(char_str);
-
-                            self.buf_left_shift(width);
-                        },
-                        Err(_) => {
-                            self.buf_left_shift(1);
-
-                            temp.push(REPLACEMENT_CHARACTER);
-                        },
-                    }
+                    self.buf_push_char(&mut temp, width);
                 },
             }
 
             if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(temp));
@@ -791,106 +617,31 @@ impl<R: Read, const N: usize> Scanner<R, N> {
     /// assert_eq!(None, sc.next_raw().unwrap());
     /// ```
     pub fn next_raw(&mut self) -> Result<Option<Vec<u8>>, ScannerError> {
-        if !self.skip_whitespaces()? {
+        if !self.skip_whitespaces()? || self.buf_length == 0 {
             return Ok(None);
-        }
-
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
         }
 
         let mut temp = Vec::new();
 
         loop {
-            let e = self.buf[self.buf_offset];
+            let width = self.buf_raw_char_width()?;
 
-            let width = get_width(e);
-
-            match width {
-                0 => {
-                    self.buf_left_shift(1);
-
-                    temp.push(e);
-                },
-                1 => {
-                    if is_whitespace_1(e) {
-                        return Ok(Some(temp));
-                    }
-
-                    self.buf_left_shift(1);
-
-                    temp.push(e);
-                },
-                3 => {
-                    while self.buf_length < width {
-                        match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
-                        {
-                            Ok(0) => {
-                                self.buf_left_shift(self.buf_length);
-
-                                return Ok(Some(temp));
-                            },
-                            Ok(c) => self.buf_length += c,
-                            Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
-                            Err(err) => return Err(err.into()),
-                        }
-                    }
-
-                    if is_whitespace_3(
+            if (width == 1 && is_whitespace_1(self.buf[self.buf_offset]))
+                || (width == 3
+                    && is_whitespace_3(
                         self.buf[self.buf_offset],
                         self.buf[self.buf_offset + 1],
                         self.buf[self.buf_offset + 2],
-                    ) {
-                        return Ok(Some(temp));
-                    } else {
-                        let char_str_bytes = &self.buf[self.buf_offset..(self.buf_offset + width)];
-
-                        temp.extend_from_slice(char_str_bytes);
-
-                        self.buf_left_shift(width);
-                    }
-                },
-                _ => {
-                    while self.buf_length < width {
-                        match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
-                        {
-                            Ok(0) => {
-                                temp.extend_from_slice(
-                                    &self.buf[self.buf_offset..(self.buf_offset + self.buf_length)],
-                                );
-
-                                self.buf_left_shift(self.buf_length);
-
-                                return Ok(Some(temp));
-                            },
-                            Ok(c) => self.buf_length += c,
-                            Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
-                            Err(err) => return Err(err.into()),
-                        }
-                    }
-
-                    let char_str_bytes = &self.buf[self.buf_offset..(self.buf_offset + width)];
-
-                    temp.extend_from_slice(char_str_bytes);
-
-                    self.buf_left_shift(width);
-                },
+                    ))
+            {
+                return Ok(Some(temp));
             }
 
-            if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+            temp.extend_from_slice(&self.buf[self.buf_offset..(self.buf_offset + width)]);
+            self.buf_left_shift(width);
 
-                if size == 0 {
-                    return Ok(Some(temp));
-                }
-
-                self.buf_length += size;
+            if !self.passing_read()? {
+                return Ok(Some(temp));
             }
         }
     }
@@ -909,96 +660,31 @@ impl<R: Read, const N: usize> Scanner<R, N> {
     /// assert_eq!(None, sc.drop_next().unwrap());
     /// ```
     pub fn drop_next(&mut self) -> Result<Option<usize>, ScannerError> {
-        if !self.skip_whitespaces()? {
+        if !self.skip_whitespaces()? || self.buf_length == 0 {
             return Ok(None);
-        }
-
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
         }
 
         let mut c = 0;
 
         loop {
-            let e = self.buf[self.buf_offset];
+            let width = self.buf_raw_char_width()?;
 
-            let width = get_width(e);
-
-            match width {
-                0 => {
-                    self.buf_left_shift(1);
-
-                    c += 1;
-                },
-                1 => {
-                    if is_whitespace_1(e) {
-                        return Ok(Some(c));
-                    }
-
-                    self.buf_left_shift(1);
-
-                    c += 1;
-                },
-                3 => {
-                    while self.buf_length < width {
-                        match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
-                        {
-                            Ok(0) => {
-                                self.buf_left_shift(self.buf_length);
-                                c += self.buf_length;
-
-                                return Ok(Some(c));
-                            },
-                            Ok(c) => self.buf_length += c,
-                            Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
-                            Err(err) => return Err(err.into()),
-                        }
-                    }
-
-                    if is_whitespace_3(
+            if (width == 1 && is_whitespace_1(self.buf[self.buf_offset]))
+                || (width == 3
+                    && is_whitespace_3(
                         self.buf[self.buf_offset],
                         self.buf[self.buf_offset + 1],
                         self.buf[self.buf_offset + 2],
-                    ) {
-                        return Ok(Some(c));
-                    } else {
-                        self.buf_left_shift(width);
-                    }
-                },
-                _ => {
-                    while self.buf_length < width {
-                        match self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])
-                        {
-                            Ok(0) => {
-                                self.buf_left_shift(self.buf_length);
-                                c += self.buf_length;
-
-                                return Ok(Some(c));
-                            },
-                            Ok(c) => self.buf_length += c,
-                            Err(ref err) if err.kind() == ErrorKind::Interrupted => (),
-                            Err(err) => return Err(err.into()),
-                        }
-                    }
-
-                    self.buf_left_shift(width);
-                },
+                    ))
+            {
+                return Ok(Some(c));
             }
 
-            if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+            c += width;
+            self.buf_left_shift(width);
 
-                if size == 0 {
-                    return Ok(Some(c));
-                }
-
-                self.buf_length += size;
+            if !self.passing_read()? {
+                return Ok(Some(c));
             }
         }
     }
@@ -1032,7 +718,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
 
         while c < max_number_of_bytes {
             if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(temp));
@@ -1079,7 +765,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
 
         while c < max_number_of_bytes {
             if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(c));
@@ -1119,9 +805,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
     ) -> Result<Option<String>, ScannerError> {
         let boundary = boundary.as_ref();
 
-        Ok(self
-            .next_until_raw(boundary.as_bytes())?
-            .map(|bytes| String::from_utf8_lossy(&bytes).into_owned()))
+        Ok(self.next_until_raw(boundary.as_bytes())?.map(into_string_lossy))
     }
 
     /// Read the next data until it reaches a specific boundary without fully validating UTF-8. If there is nothing to read, it will return `Ok(None)`.
@@ -1158,7 +842,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
 
                 self.buf_left_shift(self.buf_length);
 
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(temp));
@@ -1203,7 +887,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
 
             self.buf_left_shift(self.buf_length);
 
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+            let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
             if size == 0 {
                 return Ok(Some(temp));
@@ -1245,7 +929,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
 
                 self.buf_left_shift(self.buf_length);
 
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(c));
@@ -1286,7 +970,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
 
             self.buf_left_shift(self.buf_length);
 
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+            let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
             if size == 0 {
                 return Ok(Some(c));
@@ -1318,7 +1002,8 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         }
 
         loop {
-            let size = self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])?;
+            let size =
+                read(&mut self.reader, &mut self.buf[(self.buf_offset + self.buf_length)..])?;
 
             if size == 0 {
                 break;
@@ -1339,8 +1024,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         let result = self.next_raw()?;
 
         match result {
-            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            Some(s) => Ok(Some(numeric_text(&s).parse()?)),
             None => Ok(None),
         }
     }
@@ -1357,8 +1041,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         let result = self.next_until_raw(boundary)?;
 
         match result {
-            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            Some(s) => Ok(Some(numeric_text(&s).parse()?)),
             None => Ok(None),
         }
     }

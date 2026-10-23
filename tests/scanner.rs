@@ -437,3 +437,31 @@ fn drop_next_until() {
 
     assert_eq!(Some(1), sc.drop_next_until("aab").unwrap());
 }
+
+#[test]
+fn drop_multibyte_data() {
+    let mut sc: Scanner<_, 4> = Scanner::new2("é中文🙂\u{3000}x".as_bytes());
+
+    assert_eq!(Some(12), sc.drop_next().unwrap());
+    assert_eq!(Some("x".into()), sc.next().unwrap());
+    assert_eq!(None, sc.drop_next().unwrap());
+
+    let mut sc: Scanner<_, 4> = Scanner::new2("é中文🙂\r\nlast".as_bytes());
+
+    assert_eq!(Some(12), sc.drop_next_line().unwrap());
+    assert_eq!(Some("last".into()), sc.next_line().unwrap());
+}
+
+#[test]
+fn drop_truncated_data() {
+    let data: &[u8] = &[b'a', 0xE3, 0x80];
+    let mut sc = Scanner::new(data);
+
+    assert_eq!(Some(data.len()), sc.drop_next().unwrap());
+    assert_eq!(None, sc.drop_next().unwrap());
+
+    let mut sc = Scanner::new(data);
+
+    assert_eq!(Some(data.len()), sc.drop_next_line().unwrap());
+    assert_eq!(None, sc.drop_next_line().unwrap());
+}

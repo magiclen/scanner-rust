@@ -1,17 +1,19 @@
-use std::{
-    char::REPLACEMENT_CHARACTER,
-    fs::File,
-    io::Read,
-    path::Path,
-    ptr::copy,
-    str::{FromStr, from_utf8_unchecked},
-};
+use std::{char::REPLACEMENT_CHARACTER, fs::File, io::Read, path::Path, ptr::copy, str::FromStr};
 
 use educe::Educe;
 
-use crate::{ScannerError, kmp::compute_lps, whitespaces::*};
+use crate::{
+    ScannerError,
+    kmp::compute_lps,
+    reader::read,
+    text::{into_string_lossy, numeric_text},
+    whitespaces::*,
+};
 
 /// A simple text scanner which can parse primitive types and strings using ASCII.
+///
+/// `next_char`, `next`, and `next_line` replace each non-ASCII byte with `REPLACEMENT_CHARACTER`.
+/// For compatibility, `next_until` instead decodes its result lossily as UTF-8.
 #[derive(Educe)]
 #[educe(Debug)]
 pub struct ScannerAscii<R: Read, const N: usize = 256> {
@@ -98,8 +100,13 @@ impl<const N: usize> ScannerAscii<File, N> {
 impl<R: Read, const N: usize> ScannerAscii<R, N> {
     #[inline]
     fn buf_align_to_front_end(&mut self) {
+        debug_assert!(self.buf_offset <= N && self.buf_length <= N - self.buf_offset);
+
+        let buffer = self.buf.as_mut_ptr();
+
+        // SAFETY: Both ranges stay within the buffer, and both pointers come from the same mutable pointer.
         unsafe {
-            copy(self.buf.as_ptr().add(self.buf_offset), self.buf.as_mut_ptr(), self.buf_length);
+            copy(buffer.add(self.buf_offset), buffer, self.buf_length);
         }
 
         self.buf_offset = 0;
@@ -110,12 +117,11 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         debug_assert!(self.buf_length >= distance);
 
         self.buf_offset += distance;
+        self.buf_length -= distance;
 
         if self.buf_offset >= N - 4 {
             self.buf_align_to_front_end();
         }
-
-        self.buf_length -= distance;
     }
 
     /// Left shift (if necessary) the buffer to remove bytes from the start of the buffer. Typically, you should use this after `peek`ing the buffer.
@@ -128,9 +134,24 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         self.buf_left_shift(number_of_bytes);
     }
 
+    #[inline]
+    fn buf_skip_line(&mut self, line_length: usize) {
+        let ending = if self.buf[self.buf_offset + line_length] == b'\n' { b'\r' } else { b'\n' };
+        let mut consumed = line_length + 1;
+
+        if consumed == self.buf_length {
+            // Defer the second byte when a line ending is split across reads.
+            self.passing_byte = Some(ending);
+        } else if self.buf[self.buf_offset + consumed] == ending {
+            consumed += 1;
+        }
+
+        self.buf_left_shift(consumed);
+    }
+
     fn passing_read(&mut self) -> Result<bool, ScannerError> {
         if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+            let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
             if size == 0 {
                 return Ok(false);
@@ -144,7 +165,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
                 self.buf_left_shift(1);
 
                 return if size == 1 {
-                    let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                    let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                     if size == 0 {
                         Ok(false)
@@ -215,32 +236,10 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         loop {
             let e = self.buf[self.buf_offset];
 
-            match e {
-                b'\n' => {
-                    if self.buf_length == 1 {
-                        self.passing_byte = Some(b'\r');
-                        self.buf_left_shift(1);
-                    } else if self.buf[self.buf_offset + 1] == b'\r' {
-                        self.buf_left_shift(2);
-                    } else {
-                        self.buf_left_shift(1);
-                    }
+            if e == b'\n' || e == b'\r' {
+                self.buf_skip_line(0);
 
-                    return Ok(Some(temp));
-                },
-                b'\r' => {
-                    if self.buf_length == 1 {
-                        self.passing_byte = Some(b'\n');
-                        self.buf_left_shift(1);
-                    } else if self.buf[self.buf_offset + 1] == b'\n' {
-                        self.buf_left_shift(2);
-                    } else {
-                        self.buf_left_shift(1);
-                    }
-
-                    return Ok(Some(temp));
-                },
-                _ => (),
+                return Ok(Some(temp));
             }
 
             self.buf_left_shift(1);
@@ -252,7 +251,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
             }
 
             if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(temp));
@@ -283,48 +282,21 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         let mut temp = Vec::new();
 
         loop {
-            let e = self.buf[self.buf_offset];
+            let data = &self.buf[self.buf_offset..(self.buf_offset + self.buf_length)];
 
-            match e {
-                b'\n' => {
-                    if self.buf_length == 1 {
-                        self.passing_byte = Some(b'\r');
-                        self.buf_left_shift(1);
-                    } else if self.buf[self.buf_offset + 1] == b'\r' {
-                        self.buf_left_shift(2);
-                    } else {
-                        self.buf_left_shift(1);
-                    }
+            if let Some(line_length) = data.iter().position(|&byte| byte == b'\n' || byte == b'\r')
+            {
+                temp.extend_from_slice(&data[..line_length]);
+                self.buf_skip_line(line_length);
 
-                    return Ok(Some(temp));
-                },
-                b'\r' => {
-                    if self.buf_length == 1 {
-                        self.passing_byte = Some(b'\n');
-                        self.buf_left_shift(1);
-                    } else if self.buf[self.buf_offset + 1] == b'\n' {
-                        self.buf_left_shift(2);
-                    } else {
-                        self.buf_left_shift(1);
-                    }
-
-                    return Ok(Some(temp));
-                },
-                _ => (),
+                return Ok(Some(temp));
             }
 
-            self.buf_left_shift(1);
+            temp.extend_from_slice(data);
+            self.buf_left_shift(self.buf_length);
 
-            temp.push(e);
-
-            if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-                if size == 0 {
-                    return Ok(Some(temp));
-                }
-
-                self.buf_length += size;
+            if !self.passing_read()? {
+                return Ok(Some(temp));
             }
         }
     }
@@ -350,48 +322,20 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         let mut c = 0;
 
         loop {
-            let e = self.buf[self.buf_offset];
+            let data = &self.buf[self.buf_offset..(self.buf_offset + self.buf_length)];
 
-            match e {
-                b'\n' => {
-                    if self.buf_length == 1 {
-                        self.passing_byte = Some(b'\r');
-                        self.buf_left_shift(1);
-                    } else if self.buf[self.buf_offset + 1] == b'\r' {
-                        self.buf_left_shift(2);
-                    } else {
-                        self.buf_left_shift(1);
-                    }
+            if let Some(line_length) = data.iter().position(|&byte| byte == b'\n' || byte == b'\r')
+            {
+                self.buf_skip_line(line_length);
 
-                    return Ok(Some(c));
-                },
-                b'\r' => {
-                    if self.buf_length == 1 {
-                        self.passing_byte = Some(b'\n');
-                        self.buf_left_shift(1);
-                    } else if self.buf[self.buf_offset + 1] == b'\n' {
-                        self.buf_left_shift(2);
-                    } else {
-                        self.buf_left_shift(1);
-                    }
-
-                    return Ok(Some(c));
-                },
-                _ => (),
+                return Ok(Some(c + line_length));
             }
 
-            self.buf_left_shift(1);
+            c += self.buf_length;
+            self.buf_left_shift(self.buf_length);
 
-            c += 1;
-
-            if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-                if size == 0 {
-                    return Ok(Some(c));
-                }
-
-                self.buf_length += size;
+            if !self.passing_read()? {
+                return Ok(Some(c));
             }
         }
     }
@@ -425,7 +369,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
             self.buf_left_shift(1);
 
             if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(true);
@@ -453,18 +397,8 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
     /// ```
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Option<String>, ScannerError> {
-        if !self.skip_whitespaces()? {
+        if !self.skip_whitespaces()? || self.buf_length == 0 {
             return Ok(None);
-        }
-
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
         }
 
         let mut temp = String::new();
@@ -485,7 +419,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
             }
 
             if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(temp));
@@ -510,18 +444,8 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
     /// assert_eq!(None, sc.next_raw().unwrap());
     /// ```
     pub fn next_raw(&mut self) -> Result<Option<Vec<u8>>, ScannerError> {
-        if !self.skip_whitespaces()? {
+        if !self.skip_whitespaces()? || self.buf_length == 0 {
             return Ok(None);
-        }
-
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
         }
 
         let mut temp = Vec::new();
@@ -538,7 +462,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
             temp.push(e);
 
             if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(temp));
@@ -563,18 +487,8 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
     /// assert_eq!(None, sc.drop_next().unwrap());
     /// ```
     pub fn drop_next(&mut self) -> Result<Option<usize>, ScannerError> {
-        if !self.skip_whitespaces()? {
+        if !self.skip_whitespaces()? || self.buf_length == 0 {
             return Ok(None);
-        }
-
-        if self.buf_length == 0 {
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
-
-            if size == 0 {
-                return Ok(None);
-            }
-
-            self.buf_length += size;
         }
 
         let mut c = 0;
@@ -589,7 +503,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
             c += 1;
 
             if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(c));
@@ -629,7 +543,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
 
         while c < max_number_of_bytes {
             if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(temp));
@@ -676,7 +590,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
 
         while c < max_number_of_bytes {
             if self.buf_length == 0 {
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(c));
@@ -699,6 +613,8 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
 impl<R: Read, const N: usize> ScannerAscii<R, N> {
     /// Read the next text until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
     ///
+    /// The boundary is matched by its UTF-8 bytes before the result is decoded lossily as UTF-8.
+    ///
     /// ```rust
     /// use scanner_rust::ScannerAscii;
     ///
@@ -716,9 +632,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
     ) -> Result<Option<String>, ScannerError> {
         let boundary = boundary.as_ref();
 
-        Ok(self
-            .next_until_raw(boundary.as_bytes())?
-            .map(|bytes| String::from_utf8_lossy(&bytes).into_owned()))
+        Ok(self.next_until_raw(boundary.as_bytes())?.map(into_string_lossy))
     }
 
     /// Read the next data until it reaches a specific boundary without validating ASCII. If there is nothing to read, it will return `Ok(None)`.
@@ -755,7 +669,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
 
                 self.buf_left_shift(self.buf_length);
 
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(temp));
@@ -800,7 +714,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
 
             self.buf_left_shift(self.buf_length);
 
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+            let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
             if size == 0 {
                 return Ok(Some(temp));
@@ -842,7 +756,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
 
                 self.buf_left_shift(self.buf_length);
 
-                let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+                let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
                 if size == 0 {
                     return Ok(Some(c));
@@ -883,7 +797,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
 
             self.buf_left_shift(self.buf_length);
 
-            let size = self.reader.read(&mut self.buf[self.buf_offset..])?;
+            let size = read(&mut self.reader, &mut self.buf[self.buf_offset..])?;
 
             if size == 0 {
                 return Ok(Some(c));
@@ -915,7 +829,8 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         }
 
         loop {
-            let size = self.reader.read(&mut self.buf[(self.buf_offset + self.buf_length)..])?;
+            let size =
+                read(&mut self.reader, &mut self.buf[(self.buf_offset + self.buf_length)..])?;
 
             if size == 0 {
                 break;
@@ -936,8 +851,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         let result = self.next_raw()?;
 
         match result {
-            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            Some(s) => Ok(Some(numeric_text(&s).parse()?)),
             None => Ok(None),
         }
     }
@@ -954,8 +868,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         let result = self.next_until_raw(boundary)?;
 
         match result {
-            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(&s) }.parse()?)),
+            Some(s) => Ok(Some(numeric_text(&s).parse()?)),
             None => Ok(None),
         }
     }

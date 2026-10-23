@@ -117,3 +117,34 @@ fn next() {
     assert_eq!(None, sc.next_raw().unwrap());
     assert_eq!(None, sc.next_raw().unwrap());
 }
+
+#[test]
+fn next_truncated_multibyte() {
+    let data: &[u8] = &[b'a', 0xE3, 0x80];
+    let mut sc = Scanner::new(data);
+
+    assert_eq!(Some(data.to_vec()), sc.next_raw().unwrap());
+    assert_eq!(None, sc.next_raw().unwrap());
+}
+
+#[test]
+fn separators_after_invalid_bytes() {
+    let data: &[u8] = &[0xE3, b' ', b'x', b'\r', b'\n', 0xF0, b'\n', b'y'];
+    let mut sc: Scanner<_, 4> = Scanner::new2(data);
+
+    assert_eq!(Some(vec![0xE3]), sc.next_raw().unwrap());
+    assert_eq!(Some(b"x".to_vec()), sc.next_raw().unwrap());
+    assert_eq!(Some(Vec::new()), sc.next_line_raw().unwrap());
+    assert_eq!(Some(vec![0xF0]), sc.next_line_raw().unwrap());
+    assert_eq!(Some(b"y".to_vec()), sc.next_line_raw().unwrap());
+    assert_eq!(None, sc.next_line_raw().unwrap());
+
+    let mut sc: Scanner<_, 4> = Scanner::new2(data);
+
+    assert_eq!(Some(1), sc.drop_next().unwrap());
+    assert_eq!(Some(1), sc.drop_next().unwrap());
+    assert_eq!(Some(0), sc.drop_next_line().unwrap());
+    assert_eq!(Some(1), sc.drop_next_line().unwrap());
+    assert_eq!(Some(1), sc.drop_next_line().unwrap());
+    assert_eq!(None, sc.drop_next_line().unwrap());
+}

@@ -1,9 +1,6 @@
-use std::{
-    char::REPLACEMENT_CHARACTER,
-    str::{FromStr, from_utf8_unchecked},
-};
+use std::{char::REPLACEMENT_CHARACTER, str::FromStr};
 
-use crate::{ScannerError, whitespaces::*};
+use crate::{ScannerError, text::numeric_text, whitespaces::*};
 
 /// A simple text scanner which can in-memory-ly parse primitive types and strings using ASCII from a byte slice.
 #[derive(Debug)]
@@ -333,8 +330,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         let result = self.next()?;
 
         match result {
-            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
+            Some(s) => Ok(Some(numeric_text(s).parse()?)),
             None => Ok(None),
         }
     }
@@ -351,8 +347,7 @@ impl<'a> ScannerU8SliceAscii<'a> {
         let result = self.next_until(boundary)?;
 
         match result {
-            // SAFETY: for malformed input `s` may not be valid UTF-8 (technically UB to treat as a `&str`), but it is only fed to a primitive `FromStr` that reads it as bytes, so an invalid token merely fails to parse; validation is skipped for speed.
-            Some(s) => Ok(Some(unsafe { from_utf8_unchecked(s) }.parse()?)),
+            Some(s) => Ok(Some(numeric_text(s).parse()?)),
             None => Ok(None),
         }
     }
