@@ -2,15 +2,23 @@
 # Text Spliter
 
 Input an existing directory and a text file, and this tool can help you split that text file by empty lines into small text files named `%d.txt`.
+If a target file already exists, it stops with an error instead of overwriting it.
 */
 
 use std::{
-    fs, io,
+    fs::OpenOptions,
+    io,
     io::Write,
     path::{Path, PathBuf},
 };
 
 use scanner_rust::{Scanner, ScannerError};
+
+fn write_part(path: &Path, text: &str) -> io::Result<()> {
+    let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
+
+    file.write_all(text.as_bytes())
+}
 
 fn main() -> Result<(), ScannerError> {
     let mut sc = Scanner::new(io::stdin());
@@ -75,7 +83,7 @@ fn main() -> Result<(), ScannerError> {
                     let file_name = format!("{}.txt", counter);
                     let file_path = Path::join(&directory, file_name);
 
-                    fs::write(file_path, &s[..(s.len() - 1)])?;
+                    write_part(&file_path, &s[..(s.len() - 1)])?;
 
                     s.clear();
 
@@ -90,7 +98,7 @@ fn main() -> Result<(), ScannerError> {
                     let file_name = format!("{}.txt", counter);
                     let file_path = Path::join(&directory, file_name);
 
-                    fs::write(file_path, &s[..(s.len() - 1)])?;
+                    write_part(&file_path, &s[..(s.len() - 1)])?;
                 }
 
                 break;

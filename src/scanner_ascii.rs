@@ -1,4 +1,4 @@
-use std::{char::REPLACEMENT_CHARACTER, fs::File, io::Read, path::Path, ptr::copy, str::FromStr};
+use std::{char::REPLACEMENT_CHARACTER, fs::File, io::Read, path::Path, str::FromStr};
 
 use educe::Educe;
 
@@ -44,6 +44,8 @@ impl<R: Read> ScannerAscii<R> {
 impl<R: Read, const N: usize> ScannerAscii<R, N> {
     /// Create a scanner from a reader and set the buffer size via generics.
     ///
+    /// The buffer size `N` must be at least 4 bytes.
+    ///
     /// ```rust
     /// use std::io;
     ///
@@ -53,7 +55,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
     /// ```
     #[inline]
     pub fn new2(reader: R) -> ScannerAscii<R, N> {
-        // The buffer must be at least 4 bytes to hold a full UTF-8 character.
+        // The buffer shift logic requires at least 4 bytes.
         const { assert!(N >= 4, "the buffer size N must be at least 4 bytes") };
 
         ScannerAscii {
@@ -83,6 +85,8 @@ impl ScannerAscii<File> {
 impl<const N: usize> ScannerAscii<File, N> {
     /// Create a scanner to read data from a file by its path and set the buffer size via generics.
     ///
+    /// The buffer size `N` must be at least 4 bytes.
+    ///
     /// ```rust
     /// use scanner_rust::ScannerAscii;
     ///
@@ -100,14 +104,7 @@ impl<const N: usize> ScannerAscii<File, N> {
 impl<R: Read, const N: usize> ScannerAscii<R, N> {
     #[inline]
     fn buf_align_to_front_end(&mut self) {
-        debug_assert!(self.buf_offset <= N && self.buf_length <= N - self.buf_offset);
-
-        let buffer = self.buf.as_mut_ptr();
-
-        // SAFETY: Both ranges stay within the buffer, and both pointers come from the same mutable pointer.
-        unsafe {
-            copy(buffer.add(self.buf_offset), buffer, self.buf_length);
-        }
+        self.buf.copy_within(self.buf_offset..(self.buf_offset + self.buf_length), 0);
 
         self.buf_offset = 0;
     }
@@ -301,7 +298,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         }
     }
 
-    /// Drop the next line but not include the trailing line character (or line characters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length of the dropped line.
+    /// Drop the next line but not include the trailing line character (or line characters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length (in bytes) of the dropped line.
     ///
     /// ```rust
     /// use scanner_rust::ScannerAscii;
@@ -473,7 +470,7 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         }
     }
 
-    /// Drop the next token separated by whitespaces. If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length of the dropped token.
+    /// Drop the next token separated by whitespaces. If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length (in bytes) of the dropped token.
     ///
     /// ```rust
     /// use scanner_rust::ScannerAscii;
@@ -613,6 +610,8 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
 impl<R: Read, const N: usize> ScannerAscii<R, N> {
     /// Read the next text until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
     ///
+    /// An empty boundary reads all remaining data.
+    ///
     /// The boundary is matched by its UTF-8 bytes before the result is decoded lossily as UTF-8.
     ///
     /// ```rust
@@ -636,6 +635,8 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
     }
 
     /// Read the next data until it reaches a specific boundary without validating ASCII. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// An empty boundary reads all remaining data.
     ///
     /// ```rust
     /// use scanner_rust::ScannerAscii;
@@ -724,7 +725,9 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
         }
     }
 
-    /// Drop the next data until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
+    /// Drop the next data until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length (in bytes) of the dropped data, excluding the boundary.
+    ///
+    /// An empty boundary drops all remaining data.
     ///
     /// ```rust
     /// use scanner_rust::ScannerAscii;
@@ -822,13 +825,15 @@ impl<R: Read, const N: usize> ScannerAscii<R, N> {
     #[inline]
     pub fn peek(&mut self, shift: bool) -> Result<&[u8], ScannerError> {
         // Consume any line-terminator byte deferred by a previous read so it is not peeked again.
-        self.passing_read()?;
+        if !self.passing_read()? {
+            return Ok(&[]);
+        }
 
         if shift {
             self.buf_align_to_front_end();
         }
 
-        loop {
+        while self.buf_offset + self.buf_length < N {
             let size =
                 read(&mut self.reader, &mut self.buf[(self.buf_offset + self.buf_length)..])?;
 
@@ -891,7 +896,7 @@ macro_rules! scanner_ascii_number_methods {
         impl<R: Read, const N: usize> ScannerAscii<R, N> {
             $(
                 #[doc = concat!(
-                    "Read the next text until it reaches a specific boundary and parse it to a `", stringify!($t), "` value. If there is nothing to read, it will return `Ok(None)`.\n\n```rust\nuse scanner_rust::ScannerAscii;\n\nlet mut sc = ScannerAscii::new(", stringify!($sample), ".as_bytes());\n\nassert_eq!(Some(", stringify!($v1), "), sc.", stringify!($next_until), "(\" \").unwrap());\nassert_eq!(Some(", stringify!($v2), "), sc.", stringify!($next_until), "(\" \").unwrap());\n```"
+                    "Read the next text until it reaches a specific boundary and parse it to a `", stringify!($t), "` value. If there is nothing to read, it will return `Ok(None)`. An empty boundary reads all remaining data before parsing.\n\n```rust\nuse scanner_rust::ScannerAscii;\n\nlet mut sc = ScannerAscii::new(", stringify!($sample), ".as_bytes());\n\nassert_eq!(Some(", stringify!($v1), "), sc.", stringify!($next_until), "(\" \").unwrap());\nassert_eq!(Some(", stringify!($v2), "), sc.", stringify!($next_until), "(\" \").unwrap());\n```"
                 )]
                 #[inline]
                 pub fn $next_until<D: ?Sized + AsRef<[u8]>>(

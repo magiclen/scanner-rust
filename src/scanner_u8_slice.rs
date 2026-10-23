@@ -5,7 +5,7 @@ use std::{
 
 use utf8_width::*;
 
-use crate::{ScannerError, text::numeric_text, whitespaces::*};
+use crate::{ScannerError, kmp::find_boundary, text::numeric_text, whitespaces::*};
 
 /// A simple text scanner which can in-memory-ly parse primitive types and strings using UTF-8 from a byte slice.
 #[derive(Debug)]
@@ -335,6 +335,8 @@ impl<'a> ScannerU8Slice<'a> {
 impl<'a> ScannerU8Slice<'a> {
     /// Read the next data until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
     ///
+    /// An empty boundary reads all remaining data.
+    ///
     /// ```rust
     /// use scanner_rust::ScannerU8Slice;
     ///
@@ -365,16 +367,13 @@ impl<'a> ScannerU8Slice<'a> {
             return Ok(Some(data));
         }
 
-        for i in self.position..=(self.data_length - boundary_length) {
-            let e = i + boundary_length;
+        if let Some(offset) = find_boundary(&self.data[self.position..], boundary) {
+            let end = self.position + offset;
+            let data = &self.data[self.position..end];
 
-            if &self.data[i..e] == boundary {
-                let data = &self.data[self.position..i];
+            self.position = end + boundary_length;
 
-                self.position = e;
-
-                return Ok(Some(data));
-            }
+            return Ok(Some(data));
         }
 
         let data = &self.data[self.position..];
@@ -433,7 +432,7 @@ macro_rules! scanner_u8_slice_number_methods {
         impl<'a> ScannerU8Slice<'a> {
             $(
                 #[doc = concat!(
-                    "Read the next text until it reaches a specific boundary and parse it to a `", stringify!($t), "` value. If there is nothing to read, it will return `Ok(None)`.\n\n```rust\nuse scanner_rust::ScannerU8Slice;\n\nlet mut sc = ScannerU8Slice::new(", stringify!($sample), ".as_bytes());\n\nassert_eq!(Some(", stringify!($v1), "), sc.", stringify!($next_until), "(\" \").unwrap());\nassert_eq!(Some(", stringify!($v2), "), sc.", stringify!($next_until), "(\" \").unwrap());\n```"
+                    "Read the next text until it reaches a specific boundary and parse it to a `", stringify!($t), "` value. If there is nothing to read, it will return `Ok(None)`. An empty boundary reads all remaining data before parsing.\n\n```rust\nuse scanner_rust::ScannerU8Slice;\n\nlet mut sc = ScannerU8Slice::new(", stringify!($sample), ".as_bytes());\n\nassert_eq!(Some(", stringify!($v1), "), sc.", stringify!($next_until), "(\" \").unwrap());\nassert_eq!(Some(", stringify!($v2), "), sc.", stringify!($next_until), "(\" \").unwrap());\n```"
                 )]
                 #[inline]
                 pub fn $next_until<D: ?Sized + AsRef<[u8]>>(
@@ -502,6 +501,8 @@ impl<'a> ScannerU8Slice<'a> {
     }
 
     /// Drop the next data until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length (in bytes) of the dropped data, excluding the boundary.
+    ///
+    /// An empty boundary drops all remaining data.
     ///
     /// ```rust
     /// use scanner_rust::ScannerU8Slice;

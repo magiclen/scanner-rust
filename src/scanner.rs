@@ -3,7 +3,6 @@ use std::{
     fs::File,
     io::Read,
     path::Path,
-    ptr::copy,
     str::{FromStr, from_utf8},
 };
 
@@ -49,6 +48,8 @@ impl<R: Read> Scanner<R> {
 impl<R: Read, const N: usize> Scanner<R, N> {
     /// Create a scanner from a reader and set the buffer size via generics.
     ///
+    /// The buffer size `N` must be at least 4 bytes.
+    ///
     /// ```rust
     /// use std::io;
     ///
@@ -88,6 +89,8 @@ impl Scanner<File> {
 impl<const N: usize> Scanner<File, N> {
     /// Create a scanner to read data from a file by its path and set the buffer size via generics.
     ///
+    /// The buffer size `N` must be at least 4 bytes.
+    ///
     /// ```rust
     /// use scanner_rust::Scanner;
     ///
@@ -104,14 +107,7 @@ impl<const N: usize> Scanner<File, N> {
 impl<R: Read, const N: usize> Scanner<R, N> {
     #[inline]
     fn buf_align_to_front_end(&mut self) {
-        debug_assert!(self.buf_offset <= N && self.buf_length <= N - self.buf_offset);
-
-        let buffer = self.buf.as_mut_ptr();
-
-        // SAFETY: Both ranges stay within the buffer, and both pointers come from the same mutable pointer.
-        unsafe {
-            copy(buffer.add(self.buf_offset), buffer, self.buf_length);
-        }
+        self.buf.copy_within(self.buf_offset..(self.buf_offset + self.buf_length), 0);
 
         self.buf_offset = 0;
     }
@@ -280,21 +276,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
                 Ok(Some(e as char))
             },
             _ => {
-                while self.buf_length < width {
-                    match read(
-                        &mut self.reader,
-                        &mut self.buf[(self.buf_offset + self.buf_length)..],
-                    ) {
-                        Ok(0) => {
-                            self.buf_left_shift(1);
-
-                            return Ok(Some(REPLACEMENT_CHARACTER));
-                        },
-                        Ok(c) => self.buf_length += c,
-                        Err(err) => return Err(err.into()),
-                    }
-                }
-
+                let width = self.buf_fill_char(width)?;
                 let char_str_bytes = &self.buf[self.buf_offset..(self.buf_offset + width)];
 
                 match from_utf8(char_str_bytes) {
@@ -414,7 +396,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         }
     }
 
-    /// Drop the next line but not include the trailing line character (or line characters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length of the dropped line.
+    /// Drop the next line but not include the trailing line character (or line characters like `CrLf`(`\r\n`)). If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length (in bytes) of the dropped line.
     ///
     /// ```rust
     /// use scanner_rust::Scanner;
@@ -490,29 +472,14 @@ impl<R: Read, const N: usize> Scanner<R, N> {
 
                     self.buf_left_shift(1);
                 },
-                3 => {
-                    while self.buf_length < width {
-                        match read(
-                            &mut self.reader,
-                            &mut self.buf[(self.buf_offset + self.buf_length)..],
-                        ) {
-                            Ok(0) => {
-                                return Ok(true);
-                            },
-                            Ok(c) => self.buf_length += c,
-                            Err(err) => return Err(err.into()),
-                        }
-                    }
-
-                    if is_whitespace_3(
+                3 if self.buf_fill_char(width)? == width
+                    && is_whitespace_3(
                         self.buf[self.buf_offset],
                         self.buf[self.buf_offset + 1],
                         self.buf[self.buf_offset + 2],
-                    ) {
-                        self.buf_left_shift(3);
-                    } else {
-                        break;
-                    }
+                    ) =>
+                {
+                    self.buf_left_shift(3);
                 },
                 _ => {
                     break;
@@ -646,7 +613,7 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         }
     }
 
-    /// Drop the next token separated by whitespaces. If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length of the dropped token.
+    /// Drop the next token separated by whitespaces. If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length (in bytes) of the dropped token.
     ///
     /// ```rust
     /// use scanner_rust::Scanner;
@@ -788,6 +755,8 @@ impl<R: Read, const N: usize> Scanner<R, N> {
 impl<R: Read, const N: usize> Scanner<R, N> {
     /// Read the next text until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
     ///
+    /// An empty boundary reads all remaining data.
+    ///
     /// ```rust
     /// use scanner_rust::Scanner;
     ///
@@ -809,6 +778,8 @@ impl<R: Read, const N: usize> Scanner<R, N> {
     }
 
     /// Read the next data until it reaches a specific boundary without fully validating UTF-8. If there is nothing to read, it will return `Ok(None)`.
+    ///
+    /// An empty boundary reads all remaining data.
     ///
     /// ```rust
     /// use scanner_rust::Scanner;
@@ -897,7 +868,9 @@ impl<R: Read, const N: usize> Scanner<R, N> {
         }
     }
 
-    /// Drop the next data until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
+    /// Drop the next data until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length (in bytes) of the dropped data, excluding the boundary.
+    ///
+    /// An empty boundary drops all remaining data.
     ///
     /// ```rust
     /// use scanner_rust::Scanner;
@@ -995,13 +968,15 @@ impl<R: Read, const N: usize> Scanner<R, N> {
     #[inline]
     pub fn peek(&mut self, shift: bool) -> Result<&[u8], ScannerError> {
         // Consume any line-terminator byte deferred by a previous read so it is not peeked again.
-        self.passing_read()?;
+        if !self.passing_read()? {
+            return Ok(&[]);
+        }
 
         if shift {
             self.buf_align_to_front_end();
         }
 
-        loop {
+        while self.buf_offset + self.buf_length < N {
             let size =
                 read(&mut self.reader, &mut self.buf[(self.buf_offset + self.buf_length)..])?;
 
@@ -1064,7 +1039,7 @@ macro_rules! scanner_number_methods {
         impl<R: Read, const N: usize> Scanner<R, N> {
             $(
                 #[doc = concat!(
-                    "Read the next text until it reaches a specific boundary and parse it to a `", stringify!($t), "` value. If there is nothing to read, it will return `Ok(None)`.\n\n```rust\nuse scanner_rust::Scanner;\n\nlet mut sc = Scanner::new(", stringify!($sample), ".as_bytes());\n\nassert_eq!(Some(", stringify!($v1), "), sc.", stringify!($next_until), "(\" \").unwrap());\nassert_eq!(Some(", stringify!($v2), "), sc.", stringify!($next_until), "(\" \").unwrap());\n```"
+                    "Read the next text until it reaches a specific boundary and parse it to a `", stringify!($t), "` value. If there is nothing to read, it will return `Ok(None)`. An empty boundary reads all remaining data before parsing.\n\n```rust\nuse scanner_rust::Scanner;\n\nlet mut sc = Scanner::new(", stringify!($sample), ".as_bytes());\n\nassert_eq!(Some(", stringify!($v1), "), sc.", stringify!($next_until), "(\" \").unwrap());\nassert_eq!(Some(", stringify!($v2), "), sc.", stringify!($next_until), "(\" \").unwrap());\n```"
                 )]
                 #[inline]
                 pub fn $next_until<D: ?Sized + AsRef<[u8]>>(

@@ -35,7 +35,7 @@ impl<'a> ScannerStr<'a> {
 }
 
 impl<'a> ScannerStr<'a> {
-    /// Read the next char. If the data is not a correct char, it will return a `Ok(Some(REPLACEMENT_CHARACTER))` which is �. If there is nothing to read, it will return `Ok(None)`.
+    /// Read the next UTF-8 character. If there is nothing to read, it will return `Ok(None)`.
     ///
     /// ```rust
     /// use scanner_rust::ScannerStr;
@@ -335,6 +335,8 @@ impl<'a> ScannerStr<'a> {
 impl<'a> ScannerStr<'a> {
     /// Read the next text until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`.
     ///
+    /// An empty boundary reads all remaining data.
+    ///
     /// ```rust
     /// use scanner_rust::ScannerStr;
     ///
@@ -354,7 +356,7 @@ impl<'a> ScannerStr<'a> {
             return Ok(None);
         }
 
-        let boundary = boundary.as_ref().as_bytes();
+        let boundary = boundary.as_ref();
         let boundary_length = boundary.len();
 
         if boundary_length == 0 || boundary_length > self.text_length - self.position {
@@ -365,18 +367,13 @@ impl<'a> ScannerStr<'a> {
             return Ok(Some(text));
         }
 
-        let data = self.text.as_bytes();
+        if let Some(offset) = self.text[self.position..].find(boundary) {
+            let end = self.position + offset;
+            let text = &self.text[self.position..end];
 
-        for i in self.position..=(self.text_length - boundary_length) {
-            let e = i + boundary_length;
+            self.position = end + boundary_length;
 
-            if &data[i..e] == boundary {
-                let text = &self.text[self.position..i];
-
-                self.position = e;
-
-                return Ok(Some(text));
-            }
+            return Ok(Some(text));
         }
 
         let text = &self.text[self.position..];
@@ -435,7 +432,7 @@ macro_rules! scanner_str_number_methods {
         impl<'a> ScannerStr<'a> {
             $(
                 #[doc = concat!(
-                    "Read the next text until it reaches a specific boundary and parse it to a `", stringify!($t), "` value. If there is nothing to read, it will return `Ok(None)`.\n\n```rust\nuse scanner_rust::ScannerStr;\n\nlet mut sc = ScannerStr::new(", stringify!($sample), ");\n\nassert_eq!(Some(", stringify!($v1), "), sc.", stringify!($next_until), "(\" \").unwrap());\nassert_eq!(Some(", stringify!($v2), "), sc.", stringify!($next_until), "(\" \").unwrap());\n```"
+                    "Read the next text until it reaches a specific boundary and parse it to a `", stringify!($t), "` value. If there is nothing to read, it will return `Ok(None)`. An empty boundary reads all remaining data before parsing.\n\n```rust\nuse scanner_rust::ScannerStr;\n\nlet mut sc = ScannerStr::new(", stringify!($sample), ");\n\nassert_eq!(Some(", stringify!($v1), "), sc.", stringify!($next_until), "(\" \").unwrap());\nassert_eq!(Some(", stringify!($v2), "), sc.", stringify!($next_until), "(\" \").unwrap());\n```"
                 )]
                 #[inline]
                 pub fn $next_until<S: AsRef<str>>(
@@ -504,6 +501,8 @@ impl<'a> ScannerStr<'a> {
     }
 
     /// Drop the next text until it reaches a specific boundary. If there is nothing to read, it will return `Ok(None)`. If there is something to read, it will return `Ok(Some(i))`. The `i` is the length (in bytes) of the dropped text, excluding the boundary.
+    ///
+    /// An empty boundary drops all remaining data.
     ///
     /// ```rust
     /// use scanner_rust::ScannerStr;

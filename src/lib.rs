@@ -46,7 +46,7 @@ println!("{} + {} = {}", a, b, a + b);
 
 Besides, the `drop_next` and `drop_next_line` methods are useful when you want to skip some data.
 
-The default buffer size is 256 bytes. If you want to change that, you can use the `new2` associated function or the `scan_path2` associated function and define a length explicitly to create an instance of the above structs.
+The default buffer size is 256 bytes. If you want to change that, you can use the `new2` associated function or the `scan_path2` associated function and define a length explicitly to create an instance of the above structs. The buffer size must be at least 4 bytes.
 
 For example, to change the buffer size to 64 bytes,
 
